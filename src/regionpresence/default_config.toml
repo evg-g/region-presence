@@ -1,0 +1,34 @@
+# Default scenario. All distances are in metres, time in seconds.
+
+[simulation]
+duration_s = 300
+dt = 0.1          # sensor sample period
+seed = 7          # remove for a different run every time
+
+[sensor]
+noise_std = 0.05          # std-dev of the distance readings
+sigma_multiplier = 3.0    # noise safety margin used by the classifier
+
+[motion]                  # speed is an Ornstein-Uhlenbeck process, clipped to [min, max]
+mean_speed = 1.4
+speed_std = 0.5
+correlation_time = 5.0    # seconds over which speed changes persist
+min_speed = 0.0
+max_speed = 3.0
+
+[path]                    # closed Catmull-Rom spline through the points
+kind = "waypoints"
+closed = true
+points = [[0, 20], [20, 22], [40, 2], [60, 24], [85, 45], [60, 55], [30, 50], [5, 40]]
+
+[regions.A]
+shape = "circle"
+center = [20, 20]
+radius = 10
+
+[regions.B]
+shape = "rectangle"
+center = [60, 25]
+width = 24
+height = 14
+rotation_deg = 20

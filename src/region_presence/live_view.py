@@ -62,13 +62,17 @@ def run_gui(sim: Simulation, realtime_factor: float = 1.0, save: FsPath | None =
     done = False
 
     def consume(frame: Frame) -> None:
-        xs.append(frame.position[0]); ys.append(frame.position[1])
-        ts.append(frame.t); da.append(frame.dist_a); db.append(frame.dist_b)
+        xs.append(frame.position[0])
+        ys.append(frame.position[1])
+        ts.append(frame.t)
+        da.append(frame.dist_a)
+        db.append(frame.dist_b)
         while ts and ts[0] < frame.t - window_s:
             for q in (ts, da, db):
                 q.popleft()
         while len(xs) > int(window_s / sim.cfg.dt):
-            xs.popleft(); ys.popleft()
+            xs.popleft()
+            ys.popleft()
 
     def tick(_: int):
         nonlocal done

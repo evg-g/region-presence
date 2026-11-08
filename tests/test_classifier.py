@@ -1,7 +1,7 @@
 """Classifier tests on scripted distance sequences (no simulator involved)."""
 import pytest
 
-from regionpresence import ClassifierConfig, Presence, PresenceClassifier
+from region_presence import ClassifierConfig, Presence, PresenceClassifier
 
 A, B, OUT = Presence.IN_A, Presence.IN_B, Presence.OUTSIDE
 

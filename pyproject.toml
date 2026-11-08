@@ -16,13 +16,13 @@ gui = ["matplotlib>=3.7"]
 dev = ["pytest>=7", "matplotlib>=3.7", "ruff", "mypy"]
 
 [project.scripts]
-region-presence = "regionpresence.cli:main"
+region-presence = "region_presence.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-regionpresence = ["default_config.toml"]
+region_presence = ["default_config.toml", "py.typed"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

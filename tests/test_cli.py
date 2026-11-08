@@ -1,4 +1,4 @@
-from regionpresence.cli import main
+from region_presence.cli import main
 
 
 def test_headless_run(capsys):

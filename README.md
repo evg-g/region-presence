@@ -18,7 +18,7 @@ region-presence -c examples/adjacent_strips.toml   # layout of the assignment sk
 region-presence --save docs/demo.gif --duration 70
 ```
 
-`python -m regionpresence ...` works too. Options: `--config`, `--headless`, `--speedup`
+`python -m region_presence ...` works too. Options: `--config`, `--headless`, `--speedup`
 (0 = as fast as possible), `--duration`, `--seed`, `--save`, `--verbose`.
 
 ## The problem, and the algorithm
@@ -42,17 +42,27 @@ post-processing**; the indication lags a crossing by about one sample.
 Self-healing: a distance larger than the deepest point of region R (plus `L`) proves
 the sensor is not in R, which corrects a missed or spurious crossing.
 
-### Assumptions and limitations (read these)
+### Assumptions (the brief leaves these open)
 
-* The starting side must be known (`initial_state`, default Outside; the simulator
-  passes the true start). Unsigned distances cannot reveal it.
-* A pure *touch-and-return* (reaching the boundary within noise and turning back
-  without crossing) is indistinguishable from a crossing in distance data alone and is
-  treated as one. The self-healing bound limits how long such an error can persist.
-* `v_max` and `sigma` must really bound the sensor (the defaults come from the config).
-  If the real speed exceeds `v_max`, crossings can be missed.
-* Region interiors must not overlap (checked at start-up). Regions may touch: with
-  adjacent A|B the shared boundary moves the state A <-> B directly (`examples/adjacent_strips.toml`).
+1. **Distances are absolute (never negative)**: `get_dist_a()` / `get_dist_b()` give the shortest
+   distance to the region's boundary with no inside/outside sign. If the real sensor were
+   signed, classification would reduce to checking the sign.
+2. **The starting side is known**: by default the sensor starts Outside (`initial_state`).
+3. **Regions have non-overlapping interiors.** They may be separated by a gap
+   (`Out -> A -> Out -> B -> Out`, the default scenario) or share a boundary
+   (`Out -> A -> B -> Out`, `examples/adjacent_strips.toml`).
+4. **Motion is free in the 2D plane** (a left-to-right layout is just one configurable scenario);
+   the sensor may curve and even double back.
+5. The sensor noise and the maximum speed are bounded and known (`noise_std`, `max_speed`).
+
+### Limitations
+
+* A *touch-and-return* (reaching the boundary within noise and turning back without
+  crossing) is indistinguishable from a crossing in distance data alone and is treated as
+  one. The self-healing bound limits how long such an error can persist.
+* If the real speed exceeds `max_speed`, crossings can be missed.
+* With a shared boundary, the right half of A and the left half of B give identical readings
+  (`d_a == d_b`); only the history tells them apart, which is why the classifier keeps state.
 
 ## Simulation
 
@@ -68,7 +78,7 @@ the sensor is not in R, which corrects a missed or spurious crossing.
 
 ## Configuration (TOML, no code edits)
 
-See [`src/regionpresence/default_config.toml`](src/regionpresence/default_config.toml)
+See [`src/region_presence/default_config.toml`](src/region_presence/default_config.toml)
 and [`examples/blobs.toml`](examples/blobs.toml).
 
 | Section | Keys |
@@ -84,7 +94,7 @@ Unknown keys, missing keys, overlapping regions and bad values fail fast with a 
 ## Use the classifier on its own
 
 ```python
-from regionpresence import ClassifierConfig, PresenceClassifier
+from region_presence import ClassifierConfig, PresenceClassifier
 
 cfg = ClassifierConfig.from_motion(max_speed=3.0, dt=0.1, noise_std=0.05)
 clf = PresenceClassifier(sensor.get_dist_a, sensor.get_dist_b, cfg)
@@ -96,14 +106,14 @@ while True:
 ## Project layout
 
 ```
-src/regionpresence/
+src/region_presence/
   classifier.py   the algorithm (pure, depends only on the two callables)
   regions.py      circle / rectangle / ellipse / polygon geometry
   trajectory.py   parametric paths + speed process
   sensor.py       simulated sensor with get_dist_a()/get_dist_b()
   simulation.py   wiring, frames, accuracy metrics
   config.py       TOML loading and validation
-  viz.py, cli.py live plot and command line
+  live_view.py, cli.py live plot and command line
 tests/            47 tests: geometry, motion statistics, classifier logic, end-to-end, CLI
 ```
 

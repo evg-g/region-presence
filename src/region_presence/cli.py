@@ -1,4 +1,4 @@
-"""Command line interface: ``python -m regionpresence`` / ``region-presence``."""
+"""Command line interface: ``python -m region_presence`` / ``region-presence``."""
 
 from __future__ import annotations
 
@@ -61,7 +61,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         _run_headless(sim, args.speedup, args.verbose)
         return 0
     try:
-        from .viz import run_gui
+        from .live_view import run_gui
     except ImportError:
         print("error: the live plot needs matplotlib (pip install 'region-presence[gui]'); "
               "or use --headless", file=sys.stderr)

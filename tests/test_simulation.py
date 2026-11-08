@@ -87,3 +87,43 @@ def test_shared_wall_from_sketch_left_to_right():
         order = [f.predicted for i, f in enumerate(frames) if i == 0 or f.changed]
         assert order == [Presence.OUTSIDE, Presence.IN_A, Presence.IN_B, Presence.OUTSIDE], seed
         assert sim.metrics.accuracy > 0.99
+
+
+def _scenario(points, a_center, a_size, b_center, b_size, seed):
+    cfg = load_config(EXAMPLES / "shared_wall.toml")
+    return dataclasses.replace(
+        cfg, seed=seed, path={"kind": "waypoints", "closed": False, "points": points},
+        regions={
+            "A": {"shape": "rectangle", "center": a_center, "width": a_size[0], "height": a_size[1]},
+            "B": {"shape": "rectangle", "center": b_center, "width": b_size[0], "height": b_size[1]},
+        },
+    )
+
+
+def _sequence(cfg):
+    sim = Simulation(cfg)
+    frames = list(sim.frames())
+    return [f.predicted for i, f in enumerate(frames) if i == 0 or f.changed], sim.metrics.accuracy
+
+
+def test_passing_above_the_shared_wall_goes_through_outside():
+    # A: x 10-30, y 12-28; B: x 30-50, y 14-34. The walk leaves A through its top (y=28),
+    # then enters B through the part of B's left wall that A does not touch (y > 28).
+    for seed in range(5):
+        cfg = _scenario([[-5, 20], [20, 20], [20, 31], [26, 31], [40, 31], [70, 31]],
+                        [20, 20], (20, 16), [40, 24], (20, 20), seed)
+        order, acc = _sequence(cfg)
+        assert order == [Presence.OUTSIDE, Presence.IN_A, Presence.OUTSIDE, Presence.IN_B,
+                         Presence.OUTSIDE], seed
+        assert acc > 0.98
+
+
+def test_corner_touching_rectangles_are_not_treated_as_shared_wall():
+    # A: x 10-30, y 12-28; B: x 30-50, y 28-44 -> they touch only at the corner (30, 28).
+    for seed in range(5):  # the walk passes within ~1.7 of the shared corner
+        cfg = _scenario([[-5, 20], [20, 20], [27, 26], [29, 29.5], [33, 31], [40, 34], [70, 36]],
+                        [20, 20], (20, 16), [40, 36], (20, 16), seed)
+        order, acc = _sequence(cfg)
+        assert order == [Presence.OUTSIDE, Presence.IN_A, Presence.OUTSIDE, Presence.IN_B,
+                         Presence.OUTSIDE], seed
+        assert acc > 0.98

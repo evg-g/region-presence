@@ -114,7 +114,7 @@ src/region_presence/
   simulation.py   wiring, frames, accuracy metrics
   config.py       TOML loading and validation
   live_view.py, cli.py live plot and command line
-tests/            47 tests: geometry, motion statistics, classifier logic, end-to-end, CLI
+tests/            49 tests: geometry, motion statistics, classifier logic, end-to-end, CLI
 ```
 
 ## Development

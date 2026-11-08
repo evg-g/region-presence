@@ -2,7 +2,7 @@ import math
 
 import pytest
 
-from regionpresence.regions import (
+from region_presence.regions import (
     CircleRegion, PolygonRegion, assert_disjoint, build_region, ellipse, rectangle,
 )
 

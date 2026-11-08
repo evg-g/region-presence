@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from regionpresence import ConfigError, Presence, Simulation, load_config
-from regionpresence.config import from_dict
+from region_presence import ConfigError, Presence, Simulation, load_config
+from region_presence.config import from_dict
 
 EXAMPLES = Path(__file__).parent.parent / "examples"
 

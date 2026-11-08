@@ -95,3 +95,12 @@ def test_config_validation_and_derivation():
 def test_classifier_uses_only_the_two_callables():
     clf = PresenceClassifier(lambda: 10.0, lambda: 10.0, ClassifierConfig(0.5))
     assert clf.update().state == OUT and clf.state == OUT
+
+
+def test_adjacent_regions_move_directly_from_a_to_b():
+    # start inside A, walk to the shared A|B boundary (both distances reach ~0), continue into B
+    da = [10, 6, 2, 0.1, 2, 6, 10, 10]
+    db = [30, 26, 22, 0.1, 2, 6, 10, 10]
+    states = run(da, db, L=3.0, initial_state=A)
+    assert states[0] == A and states[-1] == B
+    assert OUT not in states  # never flickers through Outside

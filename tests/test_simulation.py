@@ -76,3 +76,13 @@ def test_config_errors(data):
 def test_missing_config_file():
     with pytest.raises(ConfigError, match="not found"):
         load_config("/nonexistent.toml")
+
+
+def test_adjacent_strips_from_sketch_left_to_right():
+    for seed in range(5):
+        cfg = dataclasses.replace(load_config(EXAMPLES / "adjacent_strips.toml"), seed=seed)
+        sim = Simulation(cfg)
+        frames = list(sim.frames())
+        order = [f.predicted for i, f in enumerate(frames) if i == 0 or f.changed]
+        assert order == [Presence.OUTSIDE, Presence.IN_A, Presence.IN_B, Presence.OUTSIDE], seed
+        assert sim.metrics.accuracy > 0.99

@@ -206,7 +206,11 @@ def build_region(name: str, spec: Mapping[str, Any]) -> Region:
 
 
 def assert_disjoint(a: Region, b: Region) -> None:
-    """Raise if the two regions overlap (checked on dense boundary samples)."""
+    """Raise if the interiors overlap (checked on dense boundary samples).
+
+    Regions that merely share a boundary (adjacent A|B) are allowed.
+    """
     for first, second in ((a, b), (b, a)):
-        if any(second.contains(p) for p in first.outline(720)):
+        if any(second.contains(p) and second.distance_to_boundary(p) > 1e-6
+               for p in first.outline(720)):
             raise ValueError(f"regions {a.name} and {b.name} overlap; they must be disjoint")

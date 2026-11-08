@@ -32,13 +32,13 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import NamedTuple
 
 log = logging.getLogger(__name__)
 
 
-class Presence(str, Enum):
+class Presence(StrEnum):
     OUTSIDE = "Outside"
     IN_A = "In A"
     IN_B = "In B"

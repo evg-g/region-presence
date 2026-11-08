@@ -3,7 +3,12 @@ import math
 import pytest
 
 from region_presence.regions import (
-    CircleRegion, PolygonRegion, assert_disjoint, build_region, ellipse, rectangle,
+    CircleRegion,
+    PolygonRegion,
+    assert_disjoint,
+    build_region,
+    ellipse,
+    rectangle,
 )
 
 

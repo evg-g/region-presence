@@ -4,7 +4,11 @@ import statistics
 import pytest
 
 from region_presence.trajectory import (
-    MotionConfig, SpeedProcess, build_path, lissajous_path, waypoint_path,
+    MotionConfig,
+    SpeedProcess,
+    build_path,
+    lissajous_path,
+    waypoint_path,
 )
 
 

@@ -4,6 +4,7 @@
 duration_s = 300
 dt = 0.1          # sensor sample period
 seed = 7          # remove for a different run every time
+initial_state = "outside"   # outside | in_a | in_b: where the sensor starts (known a priori)
 
 [sensor]
 noise_std = 0.05          # std-dev of the distance readings

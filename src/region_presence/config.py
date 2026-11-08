@@ -8,6 +8,7 @@ from dataclasses import dataclass, field, fields
 from pathlib import Path as FsPath
 from typing import Any
 
+from .classifier import Presence
 from .trajectory import MotionConfig
 
 DEFAULT_CONFIG = FsPath(__file__).with_name("default_config.toml")
@@ -17,11 +18,16 @@ class ConfigError(ValueError):
     """Invalid configuration."""
 
 
+INITIAL_STATES = {"outside": Presence.OUTSIDE, "in_a": Presence.IN_A, "in_b": Presence.IN_B}
+
+
 @dataclass(frozen=True)
 class SimConfig:
     duration_s: float = 300.0
     dt: float = 0.1
     seed: int | None = 7
+    initial_state: str = "outside"
+    """Where the sensor starts: ``outside``, ``in_a`` or ``in_b`` (the classifier is told this)."""
     noise_std: float = 0.05
     sigma_multiplier: float = 3.0
     motion: MotionConfig = field(default_factory=MotionConfig)
@@ -31,6 +37,8 @@ class SimConfig:
     def __post_init__(self) -> None:
         if self.duration_s <= 0 or self.dt <= 0:
             raise ConfigError("duration_s and dt must be > 0")
+        if self.initial_state not in INITIAL_STATES:
+            raise ConfigError(f"initial_state must be one of {sorted(INITIAL_STATES)}")
         if self.noise_std < 0 or self.sigma_multiplier <= 0:
             raise ConfigError("noise_std must be >= 0 and sigma_multiplier > 0")
         if set(self.regions) != {"A", "B"}:
@@ -49,7 +57,7 @@ def from_dict(data: Mapping[str, Any]) -> SimConfig:
     _check_keys("<root>", data, {"simulation", "sensor", "motion", "path", "regions"})
     sim = data.get("simulation", {})
     sensor = data.get("sensor", {})
-    _check_keys("simulation", sim, {"duration_s", "dt", "seed"})
+    _check_keys("simulation", sim, {"duration_s", "dt", "seed", "initial_state"})
     _check_keys("sensor", sensor, {"noise_std", "sigma_multiplier"})
     motion_keys = {f.name for f in fields(MotionConfig)}
     _check_keys("motion", data.get("motion", {}), motion_keys)

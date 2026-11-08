@@ -19,7 +19,7 @@ def run_gui(sim: Simulation, realtime_factor: float = 1.0, save: FsPath | None =
 
     interval_ms = 40
     steps_per_tick = max(1, round(realtime_factor * interval_ms / 1000 / sim.cfg.dt))
-    limit = sim.classifier._cfg.crossing_threshold  # noqa: SLF001 - display only
+    limit = sim.classifier.crossing_threshold
 
     fig = plt.figure(figsize=(10, 7), dpi=55 if save else 100)  # small dpi keeps saved GIFs light
     ax_map = fig.add_axes((0.06, 0.37, 0.9, 0.5))

@@ -127,3 +127,24 @@ def test_corner_touching_rectangles_are_not_treated_as_shared_wall():
         assert order == [Presence.OUTSIDE, Presence.IN_A, Presence.OUTSIDE, Presence.IN_B,
                          Presence.OUTSIDE], seed
         assert acc > 0.98
+
+
+def test_initial_state_must_match_where_the_path_starts():
+    cfg = dataclasses.replace(load_config(), initial_state="in_a")
+    with pytest.raises(ValueError, match="initial_state"):
+        Simulation(cfg)
+
+
+def test_invalid_initial_state_rejected():
+    with pytest.raises(ConfigError, match="initial_state"):
+        dataclasses.replace(load_config(), initial_state="middle")
+
+
+def test_starting_inside_a_region_is_supported():
+    cfg = load_config()
+    regions = {k: dict(v) for k, v in cfg.regions.items()}
+    regions["A"]["center"] = [0, 20]  # the default path starts at (0, 20): inside A
+    cfg = dataclasses.replace(cfg, regions=regions, initial_state="in_a")
+    sim = Simulation(cfg)
+    list(sim.frames())
+    assert sim.metrics.accuracy > 0.98

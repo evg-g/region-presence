@@ -91,6 +91,11 @@ class PresenceClassifier:
     def state(self) -> Presence:
         return self._state
 
+    @property
+    def crossing_threshold(self) -> float:
+        """The threshold ``L`` currently in use."""
+        return self._cfg.crossing_threshold
+
     def update(self) -> Classification:
         limit = self._cfg.crossing_threshold
         dist = {key: float(get()) for key, get in self._get.items()}

@@ -47,7 +47,7 @@ the sensor is not in R, which corrects a missed or spurious crossing.
 1. **Distances are absolute (never negative)**: `get_dist_a()` / `get_dist_b()` give the shortest
    distance to the region's boundary with no inside/outside sign. If the real sensor were
    signed, classification would reduce to checking the sign.
-2. **The starting side is known**: by default the sensor starts Outside (`initial_state`).
+2. **The starting side is known**: `simulation.initial_state` in the config (default `outside`) is handed to the classifier. The simulator checks it matches where the path really starts and refuses to run otherwise; the classifier itself never sees ground truth.
 3. **A and B are bounded rectangles with non-overlapping interiors** (confirmed with the interviewer; other shapes are supported as extras). They may be separated by a gap
    (`Out -> A -> Out -> B -> Out`, the default scenario) or share a boundary
    (`Out -> A -> B -> Out`, `examples/shared_wall.toml`).
@@ -83,7 +83,7 @@ and [`examples/blobs.toml`](examples/blobs.toml).
 
 | Section | Keys |
 |---|---|
-| `[simulation]` | `duration_s`, `dt`, `seed` |
+| `[simulation]` | `duration_s`, `dt`, `seed`, `initial_state` |
 | `[sensor]` | `noise_std`, `sigma_multiplier` |
 | `[motion]` | `mean_speed`, `speed_std`, `correlation_time`, `min_speed`, `max_speed` |
 | `[path]` | `kind = "waypoints"` (`points`, `closed`) or `"lissajous"` (`center`, `amplitude`, `freq`, `phase`) |
@@ -114,7 +114,7 @@ src/region_presence/
   simulation.py   wiring, frames, accuracy metrics
   config.py       TOML loading and validation
   live_view.py, cli.py live plot and command line
-tests/            49 tests: geometry, motion statistics, classifier logic, end-to-end, CLI
+tests/            52 tests: geometry, motion statistics, classifier logic, end-to-end, CLI
 ```
 
 ## Development

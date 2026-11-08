@@ -5,6 +5,7 @@
 duration_s = 240
 dt = 0.1
 seed = 3
+initial_state = "in_b"     # the Lissajous curve starts inside the ellipse
 
 [sensor]
 noise_std = 0.1

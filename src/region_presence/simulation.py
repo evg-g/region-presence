@@ -7,7 +7,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 
 from .classifier import ClassifierConfig, Presence, PresenceClassifier
-from .config import SimConfig
+from .config import INITIAL_STATES, SimConfig
 from .regions import Point, Region, assert_disjoint, build_region
 from .sensor import SimulatedSensor
 from .trajectory import Path, SpeedProcess, build_path
@@ -71,13 +71,18 @@ class Simulation:
             self.region_a, self.region_b, self.path,
             SpeedProcess(cfg.motion, cfg.dt, rng), cfg.dt, cfg.noise_std, rng,
         )
-        # A priori region knowledge used only for the optional self-healing bound.
+        initial = INITIAL_STATES[cfg.initial_state]
+        if self.sensor.truth != initial:  # scenario sanity check; not given to the classifier
+            raise ValueError(
+                f"initial_state is '{cfg.initial_state}' but the path starts '{self.sensor.truth.value}'"
+            )
+        # Region depth is a-priori knowledge used only for the optional self-healing bound.
         margin = 1.02
         self.classifier = PresenceClassifier(
             self.sensor.get_dist_a, self.sensor.get_dist_b,
             ClassifierConfig.from_motion(
                 cfg.motion.max_speed, cfg.dt, cfg.noise_std, cfg.sigma_multiplier,
-                initial_state=self.sensor.truth,
+                initial_state=initial,
                 max_depth_a=self.region_a.max_inner_distance() * margin,
                 max_depth_b=self.region_b.max_inner_distance() * margin,
             ),

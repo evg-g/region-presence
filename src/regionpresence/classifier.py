@@ -20,6 +20,9 @@ distance turns upward (sensor moving away from the boundary) or when it leaves t
 prevents one crossing from firing repeatedly: it is re-armed only once the
 distance exceeds ``L`` again.
 
+Adjacent regions (A and B sharing a boundary) are supported: both distances reach
+zero together and the state moves A <-> B directly.
+
 Self-healing: a distance larger than the deepest point of a region (plus ``L``)
 proves the sensor is not inside it, which corrects a missed/spurious crossing.
 """
@@ -100,8 +103,11 @@ class PresenceClassifier:
                 crossings.append(key)
             self._prev[key] = dist[key]
 
-        for key in crossings:
-            self._apply_crossing(key)
+        remaining = list(crossings)
+        while remaining:
+            consumed = self._apply_crossing(remaining.pop(0), dist)
+            if consumed in remaining:
+                remaining.remove(consumed)
         return Classification(self._state, self._state != before, dist["A"], dist["B"])
 
     def _detect_crossing(self, key: str, cur: float, limit: float) -> bool:
@@ -126,15 +132,34 @@ class PresenceClassifier:
                 return True
         return False
 
-    def _apply_crossing(self, key: str) -> None:
-        target = self._target[key]
+    def _apply_crossing(self, key: str, dist: dict[str, float]) -> str | None:
+        """Toggle state for a crossing of ``key``'s boundary.
+
+        Adjacent regions share a boundary, so crossing it is one event seen by both
+        distances: it moves A <-> B directly instead of passing through Outside.
+        Returns the other region's key if its (simultaneous) crossing was consumed.
+        """
+        other = "B" if key == "A" else "A"
+        target, other_target = self._target[key], self._target[other]
+        near_other = dist[other] <= self._cfg.crossing_threshold
         if self._state == target:
+            if near_other:
+                self._state = other_target
+                return self._disarm(other)
             self._state = Presence.OUTSIDE
+        elif self._state == other_target and near_other:
+            self._state = target
+            return self._disarm(other)
         else:
             if self._state != Presence.OUTSIDE:
                 log.warning("crossed boundary %s while in state %s; assuming a missed exit",
                             key, self._state.value)
             self._state = target
+        return None
+
+    def _disarm(self, key: str) -> str:
+        self._armed[key] = self._pending[key] = False
+        return key
 
     def _self_heal(self, dist: dict[str, float]) -> None:
         for key, depth in self._depth.items():

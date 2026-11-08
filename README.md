@@ -14,6 +14,7 @@ pip install -e ".[gui]"          # core has no dependencies; matplotlib only for
 region-presence                  # live plot, bundled scenario, 5x real time
 region-presence --headless -v    # console only (stdlib only), every sample
 region-presence -c examples/blobs.toml --speedup 10
+region-presence -c examples/adjacent_strips.toml   # layout of the assignment sketch: Out | A | B | Out
 region-presence --save docs/demo.gif --duration 70
 ```
 
@@ -50,7 +51,8 @@ the sensor is not in R, which corrects a missed or spurious crossing.
   treated as one. The self-healing bound limits how long such an error can persist.
 * `v_max` and `sigma` must really bound the sensor (the defaults come from the config).
   If the real speed exceeds `v_max`, crossings can be missed.
-* Regions are disjoint (checked at start-up), so A -> B always passes through Outside.
+* Region interiors must not overlap (checked at start-up). Regions may touch: with
+  adjacent A|B the shared boundary moves the state A <-> B directly (`examples/adjacent_strips.toml`).
 
 ## Simulation
 
@@ -102,7 +104,7 @@ src/regionpresence/
   simulation.py   wiring, frames, accuracy metrics
   config.py       TOML loading and validation
   viz.py, cli.py live plot and command line
-tests/            45 tests: geometry, motion statistics, classifier logic, end-to-end, CLI
+tests/            47 tests: geometry, motion statistics, classifier logic, end-to-end, CLI
 ```
 
 ## Development

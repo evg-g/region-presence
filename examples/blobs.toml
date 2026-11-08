@@ -1,0 +1,34 @@
+# Alternative scenario: concave polygon (A) + ellipse (B), Lissajous trajectory,
+# noisier sensor and a more erratic walker.
+
+[simulation]
+duration_s = 240
+dt = 0.1
+seed = 3
+
+[sensor]
+noise_std = 0.1
+
+[motion]
+mean_speed = 1.2
+speed_std = 0.7
+correlation_time = 3.0
+max_speed = 3.5
+
+[path]
+kind = "lissajous"
+center = [50, 30]
+amplitude = [42, 24]
+freq = [2, 3]
+phase = 0.6
+
+[regions.A]
+shape = "polygon"       # L-shaped (concave)
+vertices = [[10, 10], [35, 10], [35, 20], [20, 20], [20, 45], [10, 45]]
+
+[regions.B]
+shape = "ellipse"
+center = [75, 30]
+rx = 14
+ry = 8
+rotation_deg = -30

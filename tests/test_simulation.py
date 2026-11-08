@@ -45,7 +45,8 @@ def test_run_is_reproducible_with_seed():
 def test_changing_region_size_changes_behaviour():
     cfg = load_config()
     regions = {k: dict(v) for k, v in cfg.regions.items()}
-    regions["A"]["radius"] = 3
+    regions["A"]["width"] = 6
+    regions["A"]["height"] = 6
     small = Simulation(dataclasses.replace(cfg, regions=regions))
     frames = list(small.frames())
     t_in_a = sum(f.truth == Presence.IN_A for f in frames)
@@ -56,7 +57,7 @@ def test_changing_region_size_changes_behaviour():
 def test_overlapping_regions_rejected():
     cfg = load_config()
     regions = {k: dict(v) for k, v in cfg.regions.items()}
-    regions["A"]["radius"] = 60
+    regions["A"]["width"] = 200
     with pytest.raises(ValueError, match="overlap"):
         Simulation(dataclasses.replace(cfg, regions=regions))
 
@@ -78,9 +79,9 @@ def test_missing_config_file():
         load_config("/nonexistent.toml")
 
 
-def test_adjacent_strips_from_sketch_left_to_right():
+def test_shared_wall_from_sketch_left_to_right():
     for seed in range(5):
-        cfg = dataclasses.replace(load_config(EXAMPLES / "adjacent_strips.toml"), seed=seed)
+        cfg = dataclasses.replace(load_config(EXAMPLES / "shared_wall.toml"), seed=seed)
         sim = Simulation(cfg)
         frames = list(sim.frames())
         order = [f.predicted for i, f in enumerate(frames) if i == 0 or f.changed]

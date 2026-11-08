@@ -14,7 +14,7 @@ pip install -e ".[gui]"          # core has no dependencies; matplotlib only for
 region-presence                  # live plot, bundled scenario, 5x real time
 region-presence --headless -v    # console only (stdlib only), every sample
 region-presence -c examples/blobs.toml --speedup 10
-region-presence -c examples/adjacent_strips.toml   # layout of the assignment sketch: Out | A | B | Out
+region-presence -c examples/shared_wall.toml   # A and B share part of a wall: Out | A | B | Out
 region-presence --save docs/demo.gif --duration 70
 ```
 
@@ -48,9 +48,9 @@ the sensor is not in R, which corrects a missed or spurious crossing.
    distance to the region's boundary with no inside/outside sign. If the real sensor were
    signed, classification would reduce to checking the sign.
 2. **The starting side is known**: by default the sensor starts Outside (`initial_state`).
-3. **Regions have non-overlapping interiors.** They may be separated by a gap
+3. **A and B are bounded rectangles with non-overlapping interiors** (confirmed with the interviewer; other shapes are supported as extras). They may be separated by a gap
    (`Out -> A -> Out -> B -> Out`, the default scenario) or share a boundary
-   (`Out -> A -> B -> Out`, `examples/adjacent_strips.toml`).
+   (`Out -> A -> B -> Out`, `examples/shared_wall.toml`).
 4. **Motion is free in the 2D plane** (a left-to-right layout is just one configurable scenario);
    the sensor may curve and even double back.
 5. The sensor noise and the maximum speed are bounded and known (`noise_std`, `max_speed`).

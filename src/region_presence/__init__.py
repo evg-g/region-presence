@@ -2,12 +2,18 @@
 
 from importlib.metadata import PackageNotFoundError, version
 
-from .classifier import Classification, ClassifierConfig, Presence, PresenceClassifier
+from .classifier import (
+    Classification,
+    ClassifierConfig,
+    InvalidReadingError,
+    Presence,
+    PresenceClassifier,
+)
 from .config import ConfigError, SimConfig, load_config
 from .simulation import Frame, Simulation
 
 __all__ = [
-    "Classification", "ClassifierConfig", "ConfigError", "Frame", "Presence",
+    "Classification", "ClassifierConfig", "ConfigError", "Frame", "InvalidReadingError", "Presence",
     "PresenceClassifier", "SimConfig", "Simulation", "load_config",
 ]
 try:

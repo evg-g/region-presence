@@ -91,7 +91,10 @@ A to B (or back) without passing through Outside.
 The assignment leaves a few things open. These are the choices made here:
 
 1. **Distances are never negative.** If the real sensor returned a signed distance
-   (negative inside), the problem would reduce to checking the sign.
+   (negative inside), the problem would reduce to checking the sign. This is not just
+   assumed: every reading is checked, and a negative, infinite or non-numeric value
+   stops the classifier with an `InvalidReadingError` that names the function and the
+   value. The state is not changed by a bad reading.
 2. **The starting state is known.** It is set in the config
    (`simulation.initial_state`, default `outside`). The simulator checks that it
    matches where the path really starts. The classifier never sees the true position.
@@ -170,6 +173,9 @@ clf = PresenceClassifier(sensor.get_dist_a, sensor.get_dist_b, cfg)
 print(clf.update().state)    # Presence.IN_A, Presence.IN_B or Presence.OUTSIDE
 ```
 
+`update()` raises `InvalidReadingError` (a `ValueError`) if a distance function returns
+a negative, infinite or non-numeric value.
+
 ## Project layout
 
 ```
@@ -182,7 +188,7 @@ src/region_presence/
   config.py       loads and checks the TOML file
   live_view.py    the live plot
   cli.py          command line
-tests/            60 tests: geometry, speed, classifier, full runs, command line
+tests/            67 tests: geometry, speed, classifier, full runs, command line
 examples/         extra scenarios
 ```
 

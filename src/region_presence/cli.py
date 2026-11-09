@@ -11,6 +11,7 @@ import time
 from collections.abc import Sequence
 from pathlib import Path
 
+from .classifier import InvalidReadingError
 from .config import ConfigError, load_config
 from .simulation import Simulation
 
@@ -66,6 +67,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         except BrokenPipeError:  # output piped into e.g. `head`, which stopped reading
             os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
             return 0
+        except InvalidReadingError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
         return 0
     try:
         from .live_view import run_gui

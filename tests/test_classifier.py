@@ -1,7 +1,7 @@
 """Classifier tests on scripted distance sequences (no simulator involved)."""
 import pytest
 
-from region_presence import ClassifierConfig, Presence, PresenceClassifier
+from region_presence import ClassifierConfig, InvalidReadingError, Presence, PresenceClassifier
 
 A, B, OUT = Presence.IN_A, Presence.IN_B, Presence.OUTSIDE
 
@@ -98,3 +98,34 @@ def test_adjacent_regions_move_directly_from_a_to_b():
     states = run(da, db, L=3.0, initial_state=A)
     assert states[0] == A and states[-1] == B
     assert OUT not in states  # never flickers through Outside
+
+
+@pytest.mark.parametrize("bad", [-0.3, float("nan"), float("inf"), "far", None])
+def test_invalid_reading_is_rejected_with_a_clear_message(bad):
+    clf = PresenceClassifier(lambda: bad, lambda: 10.0, ClassifierConfig(0.6))
+    with pytest.raises(InvalidReadingError, match=r"get_dist_a\(\) returned"):
+        clf.update()
+
+
+def test_bad_reading_does_not_change_the_state():
+    readings = iter([5.0, 3.0, -1.0, 2.0])
+    current = [0.0]
+
+    def get_a():
+        return current[0]
+
+    clf = PresenceClassifier(get_a, lambda: 50.0, ClassifierConfig(0.6))
+    for _ in range(2):
+        current[0] = next(readings)
+        clf.update()
+    current[0] = next(readings)  # -1.0
+    with pytest.raises(InvalidReadingError):
+        clf.update()
+    assert clf.state == OUT
+    current[0] = next(readings)  # a valid reading afterwards still works
+    assert clf.update().state == OUT
+
+
+def test_zero_distance_is_valid():
+    clf = PresenceClassifier(lambda: 0.0, lambda: 0.0, ClassifierConfig(0.6))
+    assert clf.update().state == OUT

@@ -27,12 +27,17 @@ zero together and the state moves A <-> B directly.
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import NamedTuple
 
 log = logging.getLogger(__name__)
+
+
+class InvalidReadingError(ValueError):
+    """A distance function returned a value that is not a valid distance."""
 
 
 class Presence(StrEnum):
@@ -91,7 +96,7 @@ class PresenceClassifier:
 
     def update(self) -> Classification:
         limit = self._cfg.crossing_threshold
-        dist = {key: float(get()) for key, get in self._get.items()}
+        dist = {key: self._read(key) for key in self._get}  # validate both before changing anything
         before = self._state
 
         crossings: list[str] = []
@@ -106,6 +111,20 @@ class PresenceClassifier:
             if consumed in remaining:
                 remaining.remove(consumed)
         return Classification(self._state, self._state != before, dist["A"], dist["B"])
+
+    def _read(self, key: str) -> float:
+        """Call ``get_dist_<key>()`` and check that the result is a real, non-negative number."""
+        name = f"get_dist_{key.lower()}()"
+        value = self._get[key]()
+        try:
+            distance = float(value)
+        except (TypeError, ValueError):
+            raise InvalidReadingError(f"{name} returned {value!r}; expected a number") from None
+        if not math.isfinite(distance) or distance < 0:
+            raise InvalidReadingError(
+                f"{name} returned {distance}; a distance must be a finite number >= 0"
+            )
+        return distance
 
     def _detect_crossing(self, key: str, cur: float, limit: float) -> bool:
         """Pair test ``d_prev + d_cur <= L`` marks a crossing as *possible*; it is

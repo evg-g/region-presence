@@ -68,28 +68,14 @@ def waypoint_path(points: Sequence[Point], closed: bool = True) -> Path:
     return Path(func, float(n if closed else n - 1), closed)
 
 
-def lissajous_path(center: Point, amplitude: Point, freq: Point, phase: float = 0.0) -> Path:
-    """Closed Lissajous curve ``(cx + ax sin(fx*2*pi*u + phase), cy + ay sin(fy*2*pi*u))``."""
-    cx, cy = center
-    ax, ay = amplitude
-    fx, fy = freq
-    if not (float(fx).is_integer() and float(fy).is_integer()):
-        raise ValueError("lissajous freq values must be integers (so the curve closes)")
-    return Path(
-        lambda u: (cx + ax * math.sin(2 * math.pi * fx * u + phase),
-                   cy + ay * math.sin(2 * math.pi * fy * u)),
-        1.0, closed=True,
-    )
-
-
 def build_path(spec: Mapping[str, Any]) -> Path:
-    kind = spec.get("kind", "waypoints")
-    if kind == "waypoints":
-        return waypoint_path([tuple(p) for p in spec["points"]], bool(spec.get("closed", True)))
-    if kind == "lissajous":
-        return lissajous_path(tuple(spec["center"]), tuple(spec["amplitude"]),
-                              tuple(spec["freq"]), spec.get("phase", 0.0))
-    raise ValueError(f"unknown path kind {kind!r}; choose 'waypoints' or 'lissajous'")
+    """Create the path from the ``[path]`` config section: ``points`` and ``closed``."""
+    unknown = set(spec) - {"points", "closed"}
+    if unknown:
+        raise ValueError(f"[path]: unknown keys {sorted(unknown)}; allowed: ['closed', 'points']")
+    if "points" not in spec:
+        raise ValueError("[path]: missing key 'points'")
+    return waypoint_path([tuple(p) for p in spec["points"]], bool(spec.get("closed", True)))
 
 
 @dataclass(frozen=True)

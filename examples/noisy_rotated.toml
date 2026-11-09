@@ -15,7 +15,6 @@ correlation_time = 3.0
 max_speed = 3.5
 
 [path]
-kind = "waypoints"
 closed = true
 points = [[0, 30], [22, 22], [45, 40], [70, 28], [90, 45], [60, 58], [30, 52]]
 

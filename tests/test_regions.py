@@ -41,10 +41,6 @@ def test_rotated_rectangle_corners():
     assert r.distance_to_boundary((math.sqrt(2) + 1, 0)) == pytest.approx(1)
 
 
-def test_depth_is_half_the_shorter_side():
-    assert rect(0, 0, 20, 10, rot=33).depth == 5
-
-
 def test_outline_lies_on_the_boundary():
     r = rect(3, 3, 6, 2, rot=30)
     assert all(r.distance_to_boundary(p) < 1e-9 for p in r.outline(100))

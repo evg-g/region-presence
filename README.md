@@ -52,6 +52,8 @@ d_prev + d_cur <= L        where  L = v_max * dt + 2 * k * noise
 
 The second part of `L` is a margin for sensor noise (`k = 3` by default).
 With the default settings `L = 3 * 0.1 + 2 * 3 * 0.05 = 0.6 m`.
+The full calculation, with a reading-by-reading example, is in
+[`docs/algorithm.md`](docs/algorithm.md).
 
 When the test passes, the crossing is marked as possible. It is confirmed when
 the distance starts growing again (the sensor is moving away from the edge), or

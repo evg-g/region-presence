@@ -1,142 +1,183 @@
 # region-presence
 
-Real-time classification of a moving sensor as **In A / In B / Outside**, using only
-two zero-argument functions: `get_dist_a()` and `get_dist_b()` (shortest distance to
-the boundary of region A / B). Includes a simulator (non-constant speed, noisy
-readings, configurable rectangular regions) and a live view.
+A small Python project that tells, in real time, whether a moving GPS sensor is
+**In A**, **In B** or **Outside**. The only input is two functions,
+`get_dist_a()` and `get_dist_b()`, that return the shortest distance from the
+sensor to the edge of region A and region B.
+
+The project includes a simulator (the sensor moves along a path at a changing
+speed and the distance readings are noisy) and a live view.
 
 ![demo](docs/demo.gif)
 
 ## Quick start
 
+Requires Python 3.11 or newer.
+
 ```bash
-pip install -e ".[gui]"          # core has no dependencies; matplotlib only for the live plot
-region-presence                  # live plot, bundled scenario, 5x real time
-region-presence --headless -v    # console only (stdlib only), every sample
-region-presence -c examples/shared_wall.toml      # A and B share a whole wall
-region-presence -c examples/partial_wall.toml     # A and B share part of a wall
-region-presence -c examples/noisy_rotated.toml    # rotated rectangles, noisier sensor
-region-presence --save docs/demo.gif --duration 70
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[gui]"       # matplotlib is only needed for the live view
+
+region-presence               # live view, default scenario, 5x real time
+region-presence --headless    # text output only, no matplotlib needed
 ```
 
-`python -m region_presence ...` works too. Options: `--config`, `--headless`, `--speedup`
-(0 = as fast as possible), `--duration`, `--seed`, `--save`, `--verbose`.
+Other scenarios:
 
-## The problem, and the algorithm
+```bash
+region-presence -c examples/shared_wall.toml     # A and B share a whole wall
+region-presence -c examples/partial_wall.toml    # A and B share part of a wall
+region-presence -c examples/noisy_rotated.toml   # rotated rectangles, more sensor noise
+```
 
-The readings are **unsigned** distances, so one sample cannot tell inside from
-outside. The classifier therefore detects *boundary crossings* and toggles state.
+Useful options: `--speedup N` (0 runs as fast as possible), `--duration S`,
+`--seed N`, `--verbose` (print every sample), `--save file.gif`.
+`python -m region_presence` works the same way.
 
-Between consecutive samples the sensor moves at most `v_max * dt`. If it crossed the
-boundary of region R (A or B) in that interval it travelled at least `d_prev` (to reach the
-boundary) plus `d_cur` (to leave it), so
+## How it works
 
-    d_prev + d_cur  <=  L,    L = v_max * dt + 2 * k * sigma
+A distance reading has no sign. The sensor can be 3 m from the edge of A while
+inside A or while outside it, and one reading cannot tell which. So the
+classifier does not look at a single reading. It watches for the moment the
+sensor **crosses an edge**, and switches state when that happens.
 
-(`sigma` = sensor noise, `k` = 3 by default). When this holds the crossing is
-*possible*; it is declared as soon as the distance turns upward (the sensor is moving
-away from the boundary) or, if it never does, when it leaves the `L` zone. The state
-then toggles `Outside <-> In R`. A per-region latch stops one crossing from firing
-twice. Each decision uses only the current and previous sample: **no look-ahead, no
-post-processing**; the indication lags a crossing by about one sample.
+**Detecting a crossing.** Between two readings the sensor moves at most
+`v_max * dt` (top speed times the time between readings). If it crossed the edge
+in that time, it first covered `d_prev` to reach the edge and then `d_cur` to
+move away from it. So a crossing is only possible when
 
-When A and B share a wall, both distances drop to ~0 at the same moment; the
-classifier treats that as a single crossing and moves A <-> B directly.
+```
+d_prev + d_cur <= L        where  L = v_max * dt + 2 * k * noise
+```
 
-### Assumptions (the brief leaves these open)
+The second part of `L` is a margin for sensor noise (`k = 3` by default).
+With the default settings `L = 3 * 0.1 + 2 * 3 * 0.05 = 0.6 m`.
 
-1. **Distances are absolute (never negative)**: `get_dist_a()` / `get_dist_b()` give the shortest
-   distance to the region's boundary with no inside/outside sign. If the real sensor were
-   signed, classification would reduce to checking the sign.
-2. **The starting side is known**: `simulation.initial_state` in the config (default `outside`) is handed to the classifier. The simulator checks it matches where the path really starts and refuses to run otherwise; the classifier itself never sees ground truth.
-3. **A and B are bounded rectangles that never overlap** (confirmed with the interviewer).
-   Each may be rotated (`rotation_deg`, default 0). See the layout table below.
-4. **Motion is free in the 2D plane** (a left-to-right layout is just one configurable scenario);
-   the sensor may curve and even double back.
-5. The sensor noise and the maximum speed are bounded and known (`noise_std`, `max_speed`).
+When the test passes, the crossing is marked as possible. It is confirmed when
+the distance starts growing again (the sensor is moving away from the edge), or
+when the distance goes back above `L`. Then the state flips:
+Outside <-> In A, or Outside <-> In B. After a crossing, the same edge cannot
+trigger again until the distance has gone back above `L`, so one crossing is
+never counted twice.
 
-### Limitations
+Each decision uses only the current and the previous reading. Nothing is
+corrected afterwards. The indication is about one reading (0.1 s) behind the
+real crossing.
 
-* A *touch-and-return* (reaching the boundary within noise and turning back without
-  crossing) is indistinguishable from a crossing in distance data alone and is treated as
-  one.
-* If the real speed exceeds `max_speed`, crossings can be missed.
-* With a shared boundary, the right half of A and the left half of B give identical readings
-  (`d_a == d_b`); only the history tells them apart, which is why the classifier keeps state.
+**Shared wall.** If A and B touch, both distances drop to about zero at the
+same moment. The classifier treats this as one crossing and moves straight from
+A to B (or back) without passing through Outside.
 
-### Region layouts
+## Assumptions
 
-| Case | Layout | Expected sequence (left to right) | Scenario |
+The assignment leaves a few things open. These are the choices made here:
+
+1. **Distances are never negative.** If the real sensor returned a signed distance
+   (negative inside), the problem would reduce to checking the sign.
+2. **The starting state is known.** It is set in the config
+   (`simulation.initial_state`, default `outside`). The simulator checks that it
+   matches where the path really starts. The classifier never sees the true position.
+3. **A and B are rectangles that do not overlap** (confirmed with the interviewer).
+   Each one can be rotated (`rotation_deg`, default 0).
+4. **The sensor moves freely in the plane.** It can curve and turn back; left to right
+   is just one possible path.
+5. **Top speed and sensor noise are known** (`max_speed`, `noise_std` in the config).
+   Speed, noise and sample rate have no values in the assignment. The defaults
+   (walking speed 1.4 m/s, 5 cm noise, 10 readings per second) are my choices.
+
+## Region layouts
+
+| Case | Layout | What the sensor sees, moving left to right | Scenario |
 |---|---|---|---|
-| 1 | Gap between A and B | `Out -> A -> Out -> B -> Out` | default config |
-| 2 | A and B share a whole wall | `Out -> A -> B -> Out` | `examples/shared_wall.toml` |
-| 3 | A and B share part of a wall | through the shared part: as case 2; around it: as case 1 | `examples/partial_wall.toml` |
-| 4 | A and B overlap (partly, fully, or one inside the other) | rejected at start-up | - |
+| 1 | Gap between A and B | Outside, A, Outside, B, Outside | default config |
+| 2 | A and B share a whole wall | Outside, A, B, Outside | `examples/shared_wall.toml` |
+| 3 | A and B share part of a wall | like case 2 through the shared part, like case 1 around it | `examples/partial_wall.toml` |
+| 4 | A and B overlap, partly or fully | rejected when the config is loaded | |
 
-Touching only at a corner behaves like case 1. Overlap is checked exactly (separating
-axis test), so even a thin crossing or two identical rectangles is rejected: inside
-an overlap the sensor would be "in A" and "in B" at once, which the three outputs
-cannot express.
+Rectangles that touch only at a corner behave like case 1. Overlap is not allowed
+because a point inside both regions would be "in A" and "in B" at the same time,
+and the output has no such option. The overlap check is exact, so it also rejects
+a thin crossing or two identical rectangles.
+
+## Limitations
+
+* If the sensor reaches an edge and turns back without crossing it, the distances
+  look the same as a real crossing, and the classifier will count it as one.
+* If the real speed is higher than `max_speed`, a crossing can be missed.
+* Near a shared wall the two distances are almost equal on both sides of it.
+  Only the history shows which side the sensor is on, which is why the classifier
+  keeps state.
 
 ## Simulation
 
-* **Motion**: a parametric path (a smooth Catmull-Rom curve through waypoints, open or
-  closed) traversed at a speed from an Ornstein-Uhlenbeck process: mean speed,
-  std-dev and correlation time are configurable, clipped to `[min_speed, max_speed]`, so
-  the sensor accelerates, slows and occasionally pauses.
-* **Sensor**: `SimulatedSensor.get_dist_a()/get_dist_b()` take no arguments and return the
-  current sample (true distance + Gaussian noise, floored at 0). Ground truth
-  exists only for display and metrics; the classifier never sees it.
-* **Display**: the map, a large colour-coded indication, the ground truth for comparison
-  and the two distance signals with the threshold `L`.
+* **Path:** a smooth curve through a list of points from the config, open or closed.
+* **Speed:** has a configured average but keeps changing. It drifts up and down
+  around the average (an Ornstein-Uhlenbeck process) and stays between
+  `min_speed` and `max_speed`, so the sensor speeds up, slows down and sometimes stops.
+* **Readings:** `get_dist_a()` and `get_dist_b()` take no arguments, like a real
+  sensor driver. Each returns the true distance plus random noise, never below 0.
+  The true position is used only for the display and for measuring accuracy.
+* **Display:** a map with both regions, the current state in large colored text,
+  the true state next to it for comparison, and a plot of the two distances with
+  the line `L`.
 
-## Configuration (TOML, no code edits)
+## Configuration
 
-See [`src/region_presence/default_config.toml`](src/region_presence/default_config.toml)
-and the scenarios in [`examples/`](examples/).
+Everything is set in a TOML file, with no code changes. See
+[`src/region_presence/default_config.toml`](src/region_presence/default_config.toml)
+and the files in [`examples/`](examples/).
 
 | Section | Keys |
 |---|---|
-| `[simulation]` | `duration_s`, `dt`, `seed`, `initial_state` |
+| `[simulation]` | `duration_s`, `dt`, `seed`, `initial_state` (`outside`, `in_a`, `in_b`) |
 | `[sensor]` | `noise_std`, `sigma_multiplier` |
 | `[motion]` | `mean_speed`, `speed_std`, `correlation_time`, `min_speed`, `max_speed` |
 | `[path]` | `points` (list of `[x, y]`), `closed` |
-| `[regions.A]`, `[regions.B]` | `center`, `width`, `height`, `rotation_deg` (optional, counter-clockwise) |
+| `[regions.A]`, `[regions.B]` | `center`, `width`, `height`, `rotation_deg` (optional, degrees counter-clockwise) |
 
-Unknown keys, missing keys, overlapping regions and bad values fail fast with a clear message.
+A wrong or missing key, a bad value, or overlapping regions stop the program with
+a message that says what to fix.
 
-## Use the classifier on its own
+## Using the classifier on its own
+
+The classifier only needs the two distance functions:
 
 ```python
 from region_presence import ClassifierConfig, PresenceClassifier
 
 cfg = ClassifierConfig.from_motion(max_speed=3.0, dt=0.1, noise_std=0.05)
 clf = PresenceClassifier(sensor.get_dist_a, sensor.get_dist_b, cfg)
-while True:
-    sensor.read_next_sample()
-    print(clf.update().state)      # Presence.IN_A / IN_B / OUTSIDE
+
+# call once per new reading:
+print(clf.update().state)    # Presence.IN_A, Presence.IN_B or Presence.OUTSIDE
 ```
 
 ## Project layout
 
 ```
 src/region_presence/
-  classifier.py   the algorithm (pure, depends only on the two callables)
-  regions.py      rectangle geometry (optionally rotated) + overlap check
-  trajectory.py   smooth path through waypoints + speed process
-  sensor.py       simulated sensor with get_dist_a()/get_dist_b()
-  simulation.py   wiring, frames, accuracy metrics
-  config.py       TOML loading and validation
-  live_view.py, cli.py live plot and command line
-tests/            56 tests: geometry, motion statistics, classifier logic, end-to-end, CLI
+  classifier.py   the algorithm; uses only the two distance functions
+  regions.py      rectangles (optionally rotated) and the overlap check
+  trajectory.py   the path and the changing speed
+  sensor.py       simulated sensor with get_dist_a() / get_dist_b()
+  simulation.py   connects the parts and measures accuracy
+  config.py       loads and checks the TOML file
+  live_view.py    the live plot
+  cli.py          command line
+tests/            56 tests: geometry, speed, classifier, full runs, command line
+examples/         extra scenarios
 ```
 
 ## Development
 
 ```bash
 pip install -e ".[dev]"
-pytest && ruff check src tests && mypy src
+pytest
+ruff check src tests
+mypy src
 ```
 
-On the bundled scenario the indication agrees with ground truth on ~99.9% of samples
-(the rest is the one-sample lag at each crossing), with no flicker and no missed crossing.
+The same checks run on GitHub for Python 3.11, 3.12 and 3.13 on every push.
+
+On the default scenario the indication matches the true state on about 99.9% of
+readings. The rest are the short delays right after each crossing.

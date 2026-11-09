@@ -64,8 +64,8 @@ def test_overlapping_regions_rejected():
 
 @pytest.mark.parametrize("data", [
     {"bogus": {}},
-    {"simulation": {"dt": 0}, "path": {"kind": "waypoints"}, "regions": {"A": {}, "B": {}}},
-    {"path": {"kind": "waypoints"}, "regions": {"A": {}}},
+    {"simulation": {"dt": 0}, "path": {"points": []}, "regions": {"A": {}, "B": {}}},
+    {"path": {"points": []}, "regions": {"A": {}}},
     {"regions": {"A": {}, "B": {}}},
     {"simulation": {"typo": 1}},
 ])
@@ -93,7 +93,7 @@ def test_shared_wall_left_to_right_goes_directly_from_a_to_b(scenario):
 def _scenario(points, a_center, a_size, b_center, b_size, seed):
     cfg = load_config(EXAMPLES / "shared_wall.toml")
     return dataclasses.replace(
-        cfg, seed=seed, path={"kind": "waypoints", "closed": False, "points": points},
+        cfg, seed=seed, path={"closed": False, "points": points},
         regions={
             "A": {"center": a_center, "width": a_size[0], "height": a_size[1]},
             "B": {"center": b_center, "width": b_size[0], "height": b_size[1]},

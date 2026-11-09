@@ -71,12 +71,6 @@ def test_initial_state_respected():
     assert run(da, [FAR] * 8, L=2.0, initial_state=A)[-1] == OUT
 
 
-def test_self_heal_when_too_deep_for_region():
-    # state wrongly believed 'In A'; distance 30 > max depth 10 -> Outside
-    states = run([30, 30, 30], [FAR] * 3, initial_state=A, max_depth_a=10.0)
-    assert states == [OUT] * 3
-
-
 def test_a_then_b_sequence():
     da = [4, 1, 0.1, 1, 4, 1, 0.1, 1, 4, 20, 40] + [60] * 8
     db = [60] * 11 + [20, 4, 1, 0.1, 1, 4, 8]  + [8]

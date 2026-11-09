@@ -17,8 +17,7 @@ correlation_time = 5.0    # seconds over which speed changes persist
 min_speed = 0.0
 max_speed = 3.0
 
-[path]                    # closed Catmull-Rom spline through the points
-kind = "waypoints"
+[path]                    # smooth (Catmull-Rom) curve through the points; closed = loop
 closed = true
 points = [[0, 20], [20, 22], [40, 2], [60, 24], [85, 45], [60, 55], [30, 50], [5, 40]]
 

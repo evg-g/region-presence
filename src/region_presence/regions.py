@@ -58,11 +58,6 @@ class Rectangle:
         x, y = self._to_local(p)
         return abs(x) < self.half_w and abs(y) < self.half_h
 
-    @property
-    def depth(self) -> float:
-        """Largest distance-to-boundary reachable inside the rectangle."""
-        return min(self.half_w, self.half_h)
-
     def corners(self) -> list[Point]:
         hw, hh = self.half_w, self.half_h
         return [self._to_world(c) for c in ((-hw, -hh), (hw, -hh), (hw, hh), (-hw, hh))]

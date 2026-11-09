@@ -7,7 +7,6 @@ from region_presence.trajectory import (
     MotionConfig,
     SpeedProcess,
     build_path,
-    lissajous_path,
     waypoint_path,
 )
 
@@ -27,15 +26,12 @@ def test_open_path_finishes():
     assert path.position_at(1e6) == pytest.approx((10, 0))
 
 
-def test_lissajous_requires_integer_freq():
-    with pytest.raises(ValueError):
-        lissajous_path((0, 0), (1, 1), (1.5, 2))
-    assert build_path({"kind": "lissajous", "center": [0, 0], "amplitude": [5, 5], "freq": [1, 2]}).closed
-
-
-def test_unknown_path_kind():
-    with pytest.raises(ValueError):
-        build_path({"kind": "spiral"})
+def test_path_config_validation():
+    assert build_path({"points": [[0, 0], [10, 0], [10, 10]]}).closed
+    with pytest.raises(ValueError, match="unknown keys"):
+        build_path({"points": [[0, 0], [1, 1]], "kind": "spiral"})
+    with pytest.raises(ValueError, match="missing key"):
+        build_path({"closed": True})
 
 
 def test_speed_is_variable_bounded_and_has_requested_mean():

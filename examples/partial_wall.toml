@@ -10,7 +10,6 @@ seed = 1
 mean_speed = 1.4
 
 [path]
-kind = "waypoints"
 closed = false
 points = [[-5, 20], [20, 20], [40, 22], [70, 22]]
 

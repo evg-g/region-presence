@@ -1,5 +1,7 @@
 # region-presence
 
+[![CI](https://github.com/evg-g/region-presence/actions/workflows/ci.yml/badge.svg)](https://github.com/evg-g/region-presence/actions/workflows/ci.yml)
+
 A small Python project that tells, in real time, whether a moving GPS sensor is
 **In A**, **In B** or **Outside**. The only input is two functions,
 `get_dist_a()` and `get_dist_b()`, that return the shortest distance from the
@@ -12,7 +14,7 @@ speed and the distance readings are noisy) and a live view.
 
 ## Quick start
 
-Requires Python 3.11 or newer.
+Requires Python 3.11 or newer. Run the commands from the project folder.
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
@@ -179,7 +181,7 @@ ruff check src tests
 mypy src
 ```
 
-The same checks run on GitHub for Python 3.11, 3.12 and 3.13 on every push.
+The same checks run on GitHub for Python 3.11 to 3.14 on every push and pull request.
 
 On the default scenario the indication matches the true state on about 99.9% of
 readings. The rest are the short delays right after each crossing.

@@ -74,7 +74,7 @@ def run_gui(sim: Simulation, realtime_factor: float = 1.0, save: FsPath | None =
             xs.popleft()
             ys.popleft()
 
-    def tick(_: int):
+    def tick(_: int) -> tuple[()]:
         nonlocal done
         last: Frame | None = None
         for _i in range(steps_per_tick):

@@ -63,8 +63,8 @@ def from_dict(data: Mapping[str, Any]) -> SimConfig:
     _check_keys("motion", data.get("motion", {}), motion_keys)
     try:
         return SimConfig(
-            **{k: v for k, v in sim.items()},
-            **{k: v for k, v in sensor.items()},
+            **sim,
+            **sensor,
             motion=MotionConfig(**data.get("motion", {})),
             path=data.get("path", {}),
             regions=data.get("regions", {}),

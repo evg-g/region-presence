@@ -15,6 +15,8 @@ from .trajectory import Path, SpeedProcess, build_path
 
 @dataclass(frozen=True)
 class Frame:
+    """Everything known about one sample; only ``predicted`` comes from the classifier."""
+
     t: float
     position: Point        # ground truth, for display only
     speed: float

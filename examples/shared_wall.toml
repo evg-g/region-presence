@@ -1,5 +1,5 @@
-# Rectangles A and B share part of a wall (x = 30, y in [14, 28]) but do not overlap.
-# Sequence: Outside -> A -> B -> Outside (direct A -> B through the shared wall).
+# Case 2: rectangles A and B share a whole wall (x = 30); they do not overlap.
+# Sequence: Outside -> A -> B -> Outside (direct A -> B, no Outside in between).
 
 [simulation]
 duration_s = 60
@@ -12,16 +12,14 @@ mean_speed = 1.4
 [path]
 kind = "waypoints"
 closed = false
-points = [[-5, 20], [20, 20], [40, 22], [70, 22]]
+points = [[-5, 20], [20, 21], [40, 19], [70, 20]]
 
 [regions.A]             # x in [10, 30], y in [12, 28]
-shape = "rectangle"
 center = [20, 20]
 width = 20
 height = 16
 
-[regions.B]             # x in [30, 50], y in [14, 34]
-shape = "rectangle"
-center = [40, 24]
+[regions.B]             # x in [30, 50], y in [12, 28]
+center = [40, 20]
 width = 20
-height = 20
+height = 16

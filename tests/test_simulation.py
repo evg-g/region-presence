@@ -22,8 +22,8 @@ def test_default_scenario_is_tracked_accurately_across_seeds():
         assert sim.metrics.transitions == truth_changes  # no flicker, no missed crossing
 
 
-def test_alternative_scenario_with_noise_and_concave_region():
-    sim = Simulation(load_config(EXAMPLES / "blobs.toml"))
+def test_rotated_rectangles_with_more_noise():
+    sim = Simulation(load_config(EXAMPLES / "noisy_rotated.toml"))
     list(sim.frames())
     assert sim.metrics.accuracy > 0.95
 
@@ -79,9 +79,10 @@ def test_missing_config_file():
         load_config("/nonexistent.toml")
 
 
-def test_shared_wall_from_sketch_left_to_right():
+@pytest.mark.parametrize("scenario", ["shared_wall.toml", "partial_wall.toml"])
+def test_shared_wall_left_to_right_goes_directly_from_a_to_b(scenario):
     for seed in range(5):
-        cfg = dataclasses.replace(load_config(EXAMPLES / "shared_wall.toml"), seed=seed)
+        cfg = dataclasses.replace(load_config(EXAMPLES / scenario), seed=seed)
         sim = Simulation(cfg)
         frames = list(sim.frames())
         order = [f.predicted for i, f in enumerate(frames) if i == 0 or f.changed]
@@ -94,8 +95,8 @@ def _scenario(points, a_center, a_size, b_center, b_size, seed):
     return dataclasses.replace(
         cfg, seed=seed, path={"kind": "waypoints", "closed": False, "points": points},
         regions={
-            "A": {"shape": "rectangle", "center": a_center, "width": a_size[0], "height": a_size[1]},
-            "B": {"shape": "rectangle", "center": b_center, "width": b_size[0], "height": b_size[1]},
+            "A": {"center": a_center, "width": a_size[0], "height": a_size[1]},
+            "B": {"center": b_center, "width": b_size[0], "height": b_size[1]},
         },
     )
 

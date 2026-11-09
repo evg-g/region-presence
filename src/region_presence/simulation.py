@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 from .classifier import ClassifierConfig, Presence, PresenceClassifier
 from .config import INITIAL_STATES, SimConfig
-from .regions import Point, Region, assert_disjoint, build_region
+from .regions import Point, Rectangle, assert_disjoint, build_region
 from .sensor import SimulatedSensor
 from .trajectory import Path, SpeedProcess, build_path
 
@@ -61,8 +61,8 @@ class Metrics:
 class Simulation:
     def __init__(self, cfg: SimConfig) -> None:
         self.cfg = cfg
-        self.region_a: Region = build_region("A", cfg.regions["A"])
-        self.region_b: Region = build_region("B", cfg.regions["B"])
+        self.region_a: Rectangle = build_region("A", cfg.regions["A"])
+        self.region_b: Rectangle = build_region("B", cfg.regions["B"])
         assert_disjoint(self.region_a, self.region_b)
         self.path: Path = build_path(cfg.path)
 
@@ -83,8 +83,8 @@ class Simulation:
             ClassifierConfig.from_motion(
                 cfg.motion.max_speed, cfg.dt, cfg.noise_std, cfg.sigma_multiplier,
                 initial_state=initial,
-                max_depth_a=self.region_a.max_inner_distance() * margin,
-                max_depth_b=self.region_b.max_inner_distance() * margin,
+                max_depth_a=self.region_a.depth * margin,
+                max_depth_b=self.region_b.depth * margin,
             ),
         )
         self.metrics = Metrics()

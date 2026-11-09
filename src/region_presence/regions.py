@@ -1,4 +1,4 @@
-"""Region geometry.
+"""Region geometry: bounded rectangles, optionally rotated.
 
 Regions are used by the *simulator* (to produce sensor readings and ground
 truth).  The classifier never sees them: it only sees ``get_dist_a()`` /
@@ -8,209 +8,102 @@ truth).  The classifier never sees them: it only sees ``get_dist_a()`` /
 from __future__ import annotations
 
 import math
-from abc import ABC, abstractmethod
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from typing import Any
 
 Point = tuple[float, float]
 
-
-def _segment_distance(p: Point, a: Point, b: Point) -> float:
-    ax, ay = a
-    bx, by = b
-    dx, dy = bx - ax, by - ay
-    length_sq = dx * dx + dy * dy
-    if length_sq == 0.0:
-        return math.hypot(p[0] - ax, p[1] - ay)
-    t = max(0.0, min(1.0, ((p[0] - ax) * dx + (p[1] - ay) * dy) / length_sq))
-    return math.hypot(p[0] - (ax + t * dx), p[1] - (ay + t * dy))
+_KEYS = {"center", "width", "height", "rotation_deg"}
 
 
-def _point_in_polygon(p: Point, vertices: Sequence[Point]) -> bool:
-    """Even-odd ray casting."""
-    x, y = p
-    inside = False
-    n = len(vertices)
-    for i in range(n):
-        x1, y1 = vertices[i]
-        x2, y2 = vertices[(i + 1) % n]
-        if (y1 > y) != (y2 > y) and x < (x2 - x1) * (y - y1) / (y2 - y1) + x1:
-            inside = not inside
-    return inside
+class Rectangle:
+    """A bounded rectangle given by its center, size and rotation (degrees, counter-clockwise).
 
+    Every query first moves the point into the rectangle's own frame (undo the
+    translation and the rotation); there the rectangle is axis-aligned and
+    centred at the origin, so the maths stays simple.
+    """
 
-def _polygon_area(vertices: Sequence[Point]) -> float:
-    n = len(vertices)
-    s = 0.0
-    for i in range(n):
-        x1, y1 = vertices[i]
-        x2, y2 = vertices[(i + 1) % n]
-        s += x1 * y2 - x2 * y1
-    return s / 2.0
-
-
-def _rotate(p: Point, angle_deg: float, origin: Point) -> Point:
-    a = math.radians(angle_deg)
-    c, s = math.cos(a), math.sin(a)
-    x, y = p[0] - origin[0], p[1] - origin[1]
-    return (origin[0] + c * x - s * y, origin[1] + s * x + c * y)
-
-
-class Region(ABC):
-    """A closed 2D region with a boundary."""
-
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, center: Point, width: float, height: float,
+                 rotation_deg: float = 0.0) -> None:
+        if width <= 0 or height <= 0:
+            raise ValueError(f"region {name}: width and height must be > 0")
         self.name = name
-
-    @abstractmethod
-    def distance_to_boundary(self, p: Point) -> float:
-        """Shortest (unsigned) distance from ``p`` to the region boundary."""
-
-    @abstractmethod
-    def contains(self, p: Point) -> bool:
-        """True if ``p`` is inside the region."""
-
-    @abstractmethod
-    def outline(self, n: int = 360) -> list[Point]:
-        """``n`` points spread along the boundary."""
-
-    def bounds(self) -> tuple[float, float, float, float]:
-        pts = self.outline()
-        xs = [p[0] for p in pts]
-        ys = [p[1] for p in pts]
-        return min(xs), min(ys), max(xs), max(ys)
-
-    def max_inner_distance(self, resolution: int = 80) -> float:
-        """Largest distance-to-boundary reachable from inside the region.
-
-        Grid estimate (slight under-estimate); exact for a circle.
-        """
-        x0, y0, x1, y1 = self.bounds()
-        best = 0.0
-        for i in range(resolution + 1):
-            for j in range(resolution + 1):
-                p = (x0 + (x1 - x0) * i / resolution, y0 + (y1 - y0) * j / resolution)
-                if self.contains(p):
-                    best = max(best, self.distance_to_boundary(p))
-        return best
-
-
-class CircleRegion(Region):
-    def __init__(self, name: str, center: Point, radius: float) -> None:
-        super().__init__(name)
-        if radius <= 0:
-            raise ValueError(f"region {name}: radius must be > 0")
         self.center = (float(center[0]), float(center[1]))
-        self.radius = float(radius)
+        self.half_w = width / 2.0
+        self.half_h = height / 2.0
+        angle = math.radians(rotation_deg)
+        self._cos, self._sin = math.cos(angle), math.sin(angle)
+
+    def _to_local(self, p: Point) -> Point:
+        dx, dy = p[0] - self.center[0], p[1] - self.center[1]
+        return (self._cos * dx + self._sin * dy, -self._sin * dx + self._cos * dy)
+
+    def _to_world(self, p: Point) -> Point:
+        x, y = p
+        return (self.center[0] + self._cos * x - self._sin * y,
+                self.center[1] + self._sin * x + self._cos * y)
 
     def distance_to_boundary(self, p: Point) -> float:
-        return abs(math.hypot(p[0] - self.center[0], p[1] - self.center[1]) - self.radius)
+        """Shortest (unsigned) distance from ``p`` to the rectangle's edges."""
+        x, y = self._to_local(p)
+        gap_x = abs(x) - self.half_w  # < 0 inside the vertical edges
+        gap_y = abs(y) - self.half_h  # < 0 inside the horizontal edges
+        if gap_x <= 0 and gap_y <= 0:  # inside: distance to the nearest edge
+            return min(-gap_x, -gap_y)
+        return math.hypot(max(gap_x, 0.0), max(gap_y, 0.0))  # outside: to the nearest edge/corner
 
     def contains(self, p: Point) -> bool:
-        return math.hypot(p[0] - self.center[0], p[1] - self.center[1]) < self.radius
+        """True if ``p`` is strictly inside (points on the boundary are outside)."""
+        x, y = self._to_local(p)
+        return abs(x) < self.half_w and abs(y) < self.half_h
 
-    def outline(self, n: int = 360) -> list[Point]:
-        cx, cy = self.center
+    @property
+    def depth(self) -> float:
+        """Largest distance-to-boundary reachable inside the rectangle."""
+        return min(self.half_w, self.half_h)
+
+    def corners(self) -> list[Point]:
+        hw, hh = self.half_w, self.half_h
+        return [self._to_world(c) for c in ((-hw, -hh), (hw, -hh), (hw, hh), (-hw, hh))]
+
+    def outline(self, n: int = 400) -> list[Point]:
+        """About ``n`` points spread along the boundary (corners included)."""
+        c = self.corners()
+        per_edge = max(1, n // 4)
         return [
-            (cx + self.radius * math.cos(2 * math.pi * k / n),
-             cy + self.radius * math.sin(2 * math.pi * k / n))
-            for k in range(n)
+            (a[0] + (b[0] - a[0]) * i / per_edge, a[1] + (b[1] - a[1]) * i / per_edge)
+            for a, b in zip(c, c[1:] + c[:1], strict=True)
+            for i in range(per_edge)
         ]
 
-    def max_inner_distance(self, resolution: int = 80) -> float:
-        return self.radius
 
-
-class PolygonRegion(Region):
-    """Simple (non self-intersecting) polygon; concave shapes are fine."""
-
-    def __init__(self, name: str, vertices: Sequence[Point]) -> None:
-        super().__init__(name)
-        verts = [(float(x), float(y)) for x, y in vertices]
-        if len(verts) < 3:
-            raise ValueError(f"region {name}: polygon needs at least 3 vertices")
-        if abs(_polygon_area(verts)) == 0.0:
-            raise ValueError(f"region {name}: polygon has zero area")
-        self.vertices = verts
-
-    def distance_to_boundary(self, p: Point) -> float:
-        v = self.vertices
-        return min(_segment_distance(p, v[i], v[(i + 1) % len(v)]) for i in range(len(v)))
-
-    def contains(self, p: Point) -> bool:
-        return _point_in_polygon(p, self.vertices)
-
-    def outline(self, n: int = 360) -> list[Point]:
-        v = self.vertices
-        edges = [(v[i], v[(i + 1) % len(v)]) for i in range(len(v))]
-        lengths = [math.dist(a, b) for a, b in edges]
-        perimeter = sum(lengths)
-        points: list[Point] = []
-        for (a, b), length in zip(edges, lengths, strict=True):
-            k = max(1, round(n * length / perimeter))
-            for i in range(k):
-                t = i / k
-                points.append((a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])))
-        return points
-
-
-def rectangle(name: str, center: Point, width: float, height: float,
-              rotation_deg: float = 0.0) -> PolygonRegion:
-    if width <= 0 or height <= 0:
-        raise ValueError(f"region {name}: width and height must be > 0")
-    cx, cy = center
-    hw, hh = width / 2, height / 2
-    corners = [(cx - hw, cy - hh), (cx + hw, cy - hh), (cx + hw, cy + hh), (cx - hw, cy + hh)]
-    return PolygonRegion(name, [_rotate(c, rotation_deg, (cx, cy)) for c in corners])
-
-
-def ellipse(name: str, center: Point, rx: float, ry: float, rotation_deg: float = 0.0,
-            segments: int = 128) -> PolygonRegion:
-    """Ellipse approximated by a polygon with ``segments`` vertices."""
-    if rx <= 0 or ry <= 0:
-        raise ValueError(f"region {name}: rx and ry must be > 0")
-    cx, cy = center
-    pts = [(cx + rx * math.cos(2 * math.pi * k / segments),
-            cy + ry * math.sin(2 * math.pi * k / segments)) for k in range(segments)]
-    return PolygonRegion(name, [_rotate(p, rotation_deg, (cx, cy)) for p in pts])
-
-
-_SHAPE_KEYS: dict[str, set[str]] = {
-    "circle": {"shape", "center", "radius"},
-    "rectangle": {"shape", "center", "width", "height", "rotation_deg"},
-    "ellipse": {"shape", "center", "rx", "ry", "rotation_deg", "segments"},
-    "polygon": {"shape", "vertices"},
-}
-
-
-def build_region(name: str, spec: Mapping[str, Any]) -> Region:
-    """Create a region from a config mapping (see README for the schema)."""
-    shape = spec.get("shape")
-    if shape not in _SHAPE_KEYS:
-        raise ValueError(f"region {name}: unknown shape {shape!r}; choose from {sorted(_SHAPE_KEYS)}")
-    unknown = set(spec) - _SHAPE_KEYS[shape]
+def build_region(name: str, spec: Mapping[str, Any]) -> Rectangle:
+    """Create a rectangle from a config mapping (see README for the keys)."""
+    unknown = set(spec) - _KEYS
     if unknown:
-        raise ValueError(f"region {name}: unknown keys for {shape}: {sorted(unknown)}")
+        raise ValueError(f"region {name}: unknown keys {sorted(unknown)}; allowed: {sorted(_KEYS)}")
     try:
-        if shape == "circle":
-            return CircleRegion(name, tuple(spec["center"]), spec["radius"])
-        if shape == "rectangle":
-            return rectangle(name, tuple(spec["center"]), spec["width"], spec["height"],
-                             spec.get("rotation_deg", 0.0))
-        if shape == "ellipse":
-            return ellipse(name, tuple(spec["center"]), spec["rx"], spec["ry"],
-                           spec.get("rotation_deg", 0.0), spec.get("segments", 128))
-        return PolygonRegion(name, [tuple(v) for v in spec["vertices"]])
+        return Rectangle(name, tuple(spec["center"]), spec["width"], spec["height"],
+                         spec.get("rotation_deg", 0.0))
     except KeyError as exc:
-        raise ValueError(f"region {name}: missing key {exc.args[0]!r} for shape {shape}") from exc
+        raise ValueError(f"region {name}: missing key {exc.args[0]!r}") from exc
 
 
-def assert_disjoint(a: Region, b: Region) -> None:
-    """Raise if the interiors overlap (checked on dense boundary samples).
+def assert_disjoint(a: Rectangle, b: Rectangle, tol: float = 1e-6) -> None:
+    """Raise if the rectangles share any interior area (partial or full overlap).
 
-    Regions that merely share a boundary (adjacent A|B) are allowed.
+    Touching is allowed: a shared wall, part of a wall, or a single corner.
+
+    Exact test (separating axis theorem): two convex shapes are apart when, along
+    one of their edge directions, their shadows (projections) do not overlap.
+    Rectangles have only two edge directions each, so four directions are checked.
     """
-    for first, second in ((a, b), (b, a)):
-        if any(second.contains(p) and second.distance_to_boundary(p) > 1e-6
-               for p in first.outline(720)):
-            raise ValueError(f"regions {a.name} and {b.name} overlap; they must be disjoint")
+    axes = [(r._cos, r._sin) for r in (a, b)] + [(-r._sin, r._cos) for r in (a, b)]
+    for ax, ay in axes:
+        shadow_a = [x * ax + y * ay for x, y in a.corners()]
+        shadow_b = [x * ax + y * ay for x, y in b.corners()]
+        overlap = min(max(shadow_a), max(shadow_b)) - max(min(shadow_a), min(shadow_b))
+        if overlap <= tol:
+            return  # a gap (or a touching line) along this direction: interiors are apart
+    raise ValueError(f"regions {a.name} and {b.name} overlap; they must be disjoint")

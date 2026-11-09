@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import logging
+import os
 import sys
 import time
 from collections.abc import Sequence
@@ -58,7 +59,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
 
     if args.headless:
-        _run_headless(sim, args.speedup, args.verbose)
+        try:
+            _run_headless(sim, args.speedup, args.verbose)
+        except KeyboardInterrupt:  # Ctrl+C: stop quietly
+            return 130
+        except BrokenPipeError:  # output piped into e.g. `head`, which stopped reading
+            os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+            return 0
         return 0
     try:
         from .live_view import run_gui
@@ -66,8 +73,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("error: the live plot needs matplotlib (pip install 'region-presence[gui]'); "
               "or use --headless", file=sys.stderr)
         return 2
-    run_gui(sim, realtime_factor=args.speedup if args.speedup > 0 else 50.0,
-            save=args.save, show=args.save is None)
+    try:
+        run_gui(sim, realtime_factor=args.speedup if args.speedup > 0 else 50.0,
+                save=args.save, show=args.save is None)
+    except KeyboardInterrupt:
+        return 130
     return 0
 
 

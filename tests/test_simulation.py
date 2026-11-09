@@ -149,3 +149,30 @@ def test_starting_inside_a_region_is_supported():
     sim = Simulation(cfg)
     list(sim.frames())
     assert sim.metrics.accuracy > 0.98
+
+
+def _sequences(points, region_a, region_b, seeds=range(5)):
+    """For each seed: (classifier's sequence of states, true sequence of states)."""
+    base = load_config(EXAMPLES / "shared_wall.toml")
+    for seed in seeds:
+        cfg = dataclasses.replace(base, seed=seed, path={"closed": False, "points": points},
+                                  regions={"A": region_a, "B": region_b})
+        frames = list(Simulation(cfg).frames())
+        predicted = [f.predicted for i, f in enumerate(frames) if i == 0 or f.changed]
+        truth = [f.truth for i, f in enumerate(frames) if i == 0 or f.truth != frames[i - 1].truth]
+        yield predicted, truth
+
+
+RECT_A = {"center": [20, 20], "width": 20, "height": 16}
+RECT_B_SHARED = {"center": [40, 20], "width": 20, "height": 16}
+RECT_B_GAP = {"center": [45, 20], "width": 20, "height": 16}
+
+
+@pytest.mark.parametrize("points,region_b", [
+    ([[70, 20], [40, 21], [20, 19], [-5, 20]], RECT_B_SHARED),                     # shared wall, right to left
+    ([[-5, 20], [25, 20], [36, 21], [24, 19], [37, 20], [70, 20]], RECT_B_SHARED),  # back and forth across it
+    ([[-5, 20], [25, 20], [42, 21], [28, 19], [50, 20], [70, 20]], RECT_B_GAP),     # back and forth with a gap
+])
+def test_indication_follows_the_true_sequence(points, region_b):
+    for predicted, truth in _sequences(points, RECT_A, region_b):
+        assert predicted == truth

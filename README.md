@@ -164,7 +164,7 @@ src/region_presence/
   config.py       loads and checks the TOML file
   live_view.py    the live plot
   cli.py          command line
-tests/            56 tests: geometry, speed, classifier, full runs, command line
+tests/            59 tests: geometry, speed, classifier, full runs, command line
 examples/         extra scenarios
 ```
 

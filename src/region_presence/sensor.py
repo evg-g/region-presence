@@ -5,7 +5,7 @@ from __future__ import annotations
 import random
 
 from .classifier import Presence
-from .regions import Point, Region
+from .regions import Point, Rectangle
 from .trajectory import Path, SpeedProcess
 
 
@@ -18,7 +18,7 @@ class SimulatedSensor:
     visualisation and evaluation; the classifier never uses them.
     """
 
-    def __init__(self, region_a: Region, region_b: Region, path: Path, speed: SpeedProcess,
+    def __init__(self, region_a: Rectangle, region_b: Rectangle, path: Path, speed: SpeedProcess,
                  dt: float, noise_std: float, rng: random.Random) -> None:
         self._a, self._b = region_a, region_b
         self._path, self._speed = path, speed

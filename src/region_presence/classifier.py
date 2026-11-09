@@ -22,9 +22,6 @@ distance exceeds ``L`` again.
 
 Adjacent regions (A and B sharing a boundary) are supported: both distances reach
 zero together and the state moves A <-> B directly.
-
-Self-healing: a distance larger than the deepest point of a region (plus ``L``)
-proves the sensor is not inside it, which corrects a missed/spurious crossing.
 """
 
 from __future__ import annotations
@@ -50,9 +47,6 @@ class ClassifierConfig:
     """``L``: a boundary crossing is declared when ``d_prev + d_cur <= L``."""
     initial_state: Presence = Presence.OUTSIDE
     """Distances are unsigned, so the starting side must be known a priori."""
-    max_depth_a: float | None = None
-    """Optional: max distance-to-boundary attainable inside A (enables self-healing)."""
-    max_depth_b: float | None = None
 
     def __post_init__(self) -> None:
         if self.crossing_threshold <= 0:
@@ -84,7 +78,6 @@ class PresenceClassifier:
         self._prev: dict[str, float] = {}
         self._armed: dict[str, bool] = {}
         self._pending: dict[str, bool] = {}
-        self._depth = {"A": config.max_depth_a, "B": config.max_depth_b}
         self._target = {"A": Presence.IN_A, "B": Presence.IN_B}
 
     @property
@@ -100,7 +93,6 @@ class PresenceClassifier:
         limit = self._cfg.crossing_threshold
         dist = {key: float(get()) for key, get in self._get.items()}
         before = self._state
-        self._self_heal(dist)
 
         crossings: list[str] = []
         for key in sorted(dist, key=dist.__getitem__):  # nearest boundary first
@@ -165,11 +157,3 @@ class PresenceClassifier:
     def _disarm(self, key: str) -> str:
         self._armed[key] = self._pending[key] = False
         return key
-
-    def _self_heal(self, dist: dict[str, float]) -> None:
-        for key, depth in self._depth.items():
-            if depth is not None and self._state == self._target[key] \
-                    and dist[key] > depth + self._cfg.crossing_threshold:
-                log.warning("distance %.2f exceeds depth of %s; correcting to Outside",
-                            dist[key], key)
-                self._state = Presence.OUTSIDE

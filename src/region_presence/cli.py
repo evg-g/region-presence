@@ -42,7 +42,7 @@ def _run_headless(sim: Simulation, speedup: float, verbose: bool) -> None:
                   flush=True)
     m = sim.metrics
     print(f"\n{m.frames} samples @ {1 / dt:g} Hz | indication matches ground truth "
-          f"{m.accuracy:.2%} | {m.transitions} transitions | mean lag {m.mean_delay_s:.2f}s")
+          f"{m.accuracy:.2%} | {m.transitions} transitions")
 
 
 def main(argv: Sequence[str] | None = None) -> int:

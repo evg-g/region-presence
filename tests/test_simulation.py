@@ -169,9 +169,9 @@ RECT_B_GAP = {"center": [45, 20], "width": 20, "height": 16}
 
 
 @pytest.mark.parametrize("points,region_b", [
-    ([[70, 20], [40, 21], [20, 19], [-5, 20]], RECT_B_SHARED),                     # shared wall, right to left
+    ([[70, 20], [40, 21], [20, 19], [-5, 20]], RECT_B_SHARED),  # shared wall, right to left
     ([[-5, 20], [25, 20], [36, 21], [24, 19], [37, 20], [70, 20]], RECT_B_SHARED),  # back and forth across it
-    ([[-5, 20], [25, 20], [42, 21], [28, 19], [50, 20], [70, 20]], RECT_B_GAP),     # back and forth with a gap
+    ([[-5, 20], [25, 20], [42, 21], [28, 19], [50, 20], [70, 20]], RECT_B_GAP),  # back and forth with a gap
 ])
 def test_indication_follows_the_true_sequence(points, region_b):
     for predicted, truth in _sequences(points, RECT_A, region_b):

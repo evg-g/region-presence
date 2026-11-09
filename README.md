@@ -12,11 +12,25 @@ speed and the distance readings are noisy) and a live view.
 
 ![demo](docs/demo.gif)
 
+## What you need
+
+* **Python 3.11 or newer.** Check with `python3 --version`.
+* **git**, to download the project. Or use the green "Code" button on GitHub and
+  "Download ZIP".
+* **Internet access** the first time, so `pip` can install the dependencies.
+* **For the live view only:** a screen. On a server, or in WSL without graphics
+  support, use `--headless` instead.
+
+The project is tested on Linux (Ubuntu) with Python 3.11 to 3.14. It is plain
+Python, so macOS and Windows should work too; on Windows, activate the virtual
+environment with `.venv\Scripts\activate` instead of `source .venv/bin/activate`,
+and type `python` where the commands say `python3`.
+
 ## Quick start
 
-Requires Python 3.11 or newer. Run the commands from the project folder.
-
 ```bash
+git clone https://github.com/evg-g/region-presence.git
+cd region-presence
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[gui]"       # matplotlib is only needed for the live view
 

@@ -37,6 +37,11 @@ class Rectangle:
         angle = math.radians(rotation_deg)
         self._cos, self._sin = math.cos(angle), math.sin(angle)
 
+    @property
+    def depth(self) -> float:
+        """Largest possible distance to the boundary from inside: half of the shorter side."""
+        return min(self.half_w, self.half_h)
+
     def _to_local(self, p: Point) -> Point:
         dx, dy = p[0] - self.center[0], p[1] - self.center[1]
         return (self._cos * dx + self._sin * dy, -self._sin * dx + self._cos * dy)

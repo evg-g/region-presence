@@ -63,11 +63,23 @@ class Simulation:
             raise ValueError(
                 f"initial_state is '{cfg.initial_state}' but the path starts '{self.sensor.truth.value}'"
             )
+        threshold = ClassifierConfig.from_motion(
+            cfg.motion.max_speed, cfg.dt, cfg.noise_std, cfg.sigma_multiplier
+        ).crossing_threshold
+        for region in (self.region_a, self.region_b):
+            if region.depth <= threshold:  # the classifier could never see the sensor leave
+                raise ValueError(
+                    f"region {region.name} is too small: the sensor is never more than "
+                    f"{region.depth:g} from its edge, but the crossing threshold is {threshold:.3g} "
+                    "(max_speed * dt + 2 * sigma_multiplier * noise_std). Make the region larger "
+                    "or lower max_speed, dt or noise_std."
+                )
         self.classifier = PresenceClassifier(
             self.sensor.get_dist_a, self.sensor.get_dist_b,
             ClassifierConfig.from_motion(
                 cfg.motion.max_speed, cfg.dt, cfg.noise_std, cfg.sigma_multiplier,
                 initial_state=initial,
+                max_depth_a=self.region_a.depth, max_depth_b=self.region_b.depth,
             ),
         )
         self.metrics = Metrics()

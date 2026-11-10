@@ -54,8 +54,17 @@ def test_fast_jump_outside_of_threshold_is_not_a_crossing():
 
 
 def test_single_crossing_does_not_fire_repeatedly():
-    states = run([0.5, 0.4, 0.3, 0.2, 0.25, 0.2, 0.3, 0.4, 1.5, 4], [FAR] * 10, initial_state=OUT)
-    # starts inside the zone: armed only after leaving it once -> no spurious toggles
+    # a real crossing (the sensor approaches from far away), then it wobbles near the edge
+    # inside the L zone: the state must flip once and stay
+    da = [5, 3, 1.5, 0.3, 0.1, 0.35, 0.3, 0.4, 0.3, 0.2, 0.3, 0.25, 0.3, 0.2]
+    states = run(da, [FAR] * len(da))
+    assert states[0] == OUT and states[-1] == A
+    assert sum(1 for x, y in zip(states, states[1:], strict=False) if x != y) == 1
+
+
+def test_starting_inside_the_zone_does_not_fire():
+    # the first sample is already near the edge: nothing is known about a crossing yet
+    states = run([0.5, 0.4, 0.3, 0.2, 0.25, 0.2, 0.3, 0.4, 1.5, 4], [FAR] * 10)
     assert states == [OUT] * 10
 
 
@@ -142,3 +151,84 @@ def test_from_motion_names_the_bad_input():
         ClassifierConfig.from_motion(max_speed=3.0, dt=0.0, noise_std=0.05)
     with pytest.raises(ValueError, match="noise_std"):
         ClassifierConfig.from_motion(max_speed=3.0, dt=0.1, noise_std=float("nan"))
+
+
+# ----- depth check -----------------------------------------------------------------------
+
+DEPTH = 8.0  # like a 20 x 16 rectangle
+
+
+def test_wrong_state_heals_when_the_distance_is_too_large_for_the_state(caplog):
+    # a false crossing (the sensor idles next to the edge), then it walks 20 m away
+    da = [5, 3, 1.5, 0.15, 0.17, 0.14, 0.16, 0.15, 2, 5, 10, 15, 20, 25]
+    without = run(da, [FAR] * len(da))
+    assert without[-1] == A  # no depth check: the mistake stays forever
+    with caplog.at_level("WARNING"):
+        states = run(da, [FAR] * len(da), max_depth_a=DEPTH)
+    assert A in states and states[-1] == OUT
+    assert "resetting to Outside" in caplog.text
+
+
+def test_depth_check_leaves_a_correct_state_alone():
+    # walk into A, to its centre (8 m from every edge, a little noise on top), and back out
+    da = [5, 3, 1.5, 0.3, 0.1, 1, 4, 7, 8.0, 8.3, 8.4, 7, 4, 1, 0.1, 0.3, 1.5, 3]
+    states = run(da, [FAR] * len(da), max_depth_a=DEPTH)
+    assert states[5:15] == [A] * 10
+    assert states[-1] == OUT
+
+
+def test_depth_check_covers_region_b_too():
+    db = [5, 3, 1.5, 0.15, 0.17, 0.14, 0.16, 0.15, 2, 5, 10, 15, 20, 25]
+    assert run([FAR] * len(db), db, max_depth_b=DEPTH)[-1] == OUT
+
+
+def test_region_that_is_too_small_for_the_threshold_is_rejected():
+    with pytest.raises(ValueError, match="max_depth_a"):
+        ClassifierConfig(crossing_threshold=0.6, max_depth_a=0.5)
+    with pytest.raises(ValueError, match="max_depth_b"):
+        ClassifierConfig(crossing_threshold=0.6, max_depth_b=float("nan"))
+
+
+# ----- known limitations (documented in the README) --------------------------------------
+# Each test says what a perfect classifier would do. They are marked as expected failures:
+# strict=True makes the suite fail if one of them ever starts passing, so the README
+# has to be updated when that happens.
+
+@pytest.mark.xfail(strict=True, reason="idling next to an edge looks like a crossing")
+def test_standing_still_next_to_an_edge_keeps_the_state():
+    da = [5, 3, 1.5] + [0.15, 0.17, 0.14, 0.16, 0.15, 0.18, 0.14] * 3
+    assert run(da, [FAR] * len(da))[-1] == OUT
+
+
+@pytest.mark.xfail(strict=True, reason="a pass shallower than L never leaves the threshold zone")
+def test_shallow_pass_through_a_corner_ends_outside():
+    # in 0.2 m and straight out again
+    da = [3, 1.5, 0.5, 0.1, 0.2, 0.2, 0.1, 0.5, 1.5, 3]
+    assert run(da, [FAR] * len(da))[-1] == OUT
+
+
+@pytest.mark.xfail(strict=True, reason="touching the edge and turning back looks like a crossing")
+def test_touching_an_edge_and_turning_back_keeps_the_state():
+    da = [5, 3, 1.5, 0.3, 0.15, 0.3, 1.5, 3, 5]
+    assert run(da, [FAR] * len(da))[-1] == OUT
+
+
+# ----- architecture ----------------------------------------------------------------------
+
+def test_classifier_module_imports_only_the_standard_library():
+    """The classifier must not depend on the simulator, the sensor or matplotlib."""
+    import ast
+    import sys
+    from pathlib import Path
+
+    import region_presence.classifier as module
+
+    tree = ast.parse(Path(module.__file__).read_text())
+    imported = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported |= {alias.name.split(".")[0] for alias in node.names}
+        elif isinstance(node, ast.ImportFrom):
+            assert node.level == 0, "relative import: the classifier would depend on its own package"
+            imported.add((node.module or "").split(".")[0])
+    assert imported <= set(sys.stdlib_module_names), imported - set(sys.stdlib_module_names)

@@ -76,3 +76,8 @@ def test_overlapping_rectangles_are_rejected(b):
 def test_build_region_validation(spec, msg):
     with pytest.raises(ValueError, match=msg):
         build_region("A", spec)
+
+
+def test_depth_is_half_of_the_shorter_side():
+    assert Rectangle("A", (0, 0), 20, 16).depth == 8
+    assert Rectangle("A", (5, 5), 6, 30, rotation_deg=37).depth == 3

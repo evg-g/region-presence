@@ -176,3 +176,11 @@ RECT_B_GAP = {"center": [45, 20], "width": 20, "height": 16}
 def test_indication_follows_the_true_sequence(points, region_b):
     for predicted, truth in _sequences(points, RECT_A, region_b):
         assert predicted == truth
+
+
+def test_region_too_small_to_track_is_rejected():
+    cfg = load_config()  # threshold L = 0.6 m
+    regions = {k: dict(v) for k, v in cfg.regions.items()}
+    regions["A"]["width"] = 1.0
+    with pytest.raises(ValueError, match="region A is too small"):
+        Simulation(dataclasses.replace(cfg, regions=regions))

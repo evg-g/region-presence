@@ -16,12 +16,23 @@ immediately - no look-ahead, no post-processing.
 
 The pair test only marks a crossing as *possible*; it is declared as soon as the
 distance turns upward (sensor moving away from the boundary) or when it leaves the
-``L`` zone, which avoids firing ahead of the actual crossing.  A per-region latch
+``L`` zone.  At walking speed this indicates the crossing about one sample late; a
+slow sensor can be indicated up to about ``L / 2`` before it reaches the edge.  A per-region latch
 prevents one crossing from firing repeatedly: it is re-armed only once the
 distance exceeds ``L`` again.
 
 Adjacent regions (A and B sharing a boundary) are supported: both distances reach
 zero together and the state moves A <-> B directly.
+
+Depth check (optional)
+----------------------
+A rectangle has a largest possible distance to its own edge, reached at its
+centre: half of its shorter side.  If the state says "In A" but ``get_dist_a()``
+is clearly larger than that (by more than the noise margin), the sensor cannot
+be inside A, so the state is wrong.  The classifier then goes back to Outside and
+logs a warning.  This is the only way a wrong state can heal itself, because
+distances carry no sign.  It needs the region depths (``max_depth_a`` and
+``max_depth_b`` in :class:`ClassifierConfig`) and is skipped when they are not given.
 """
 
 from __future__ import annotations
@@ -53,16 +64,35 @@ class ClassifierConfig:
     """``L``: a boundary crossing is declared when ``d_prev + d_cur <= L``."""
     initial_state: Presence = Presence.OUTSIDE
     """Distances are unsigned, so the starting side must be known a priori."""
+    max_depth_a: float | None = None
+    max_depth_b: float | None = None
+    """Largest distance to the edge from inside A / B (half of the shorter side).
+    Optional; when given, a state that contradicts it is corrected (see the module docstring)."""
 
     def __post_init__(self) -> None:
         # written as "not (x > 0)" so that NaN, for which every comparison is False, fails too
         if not (math.isfinite(self.crossing_threshold) and self.crossing_threshold > 0):
             raise ValueError(f"crossing_threshold = {self.crossing_threshold}: must be a finite number > 0")
+        for name, depth in (("max_depth_a", self.max_depth_a), ("max_depth_b", self.max_depth_b)):
+            if depth is None:
+                continue
+            if not (math.isfinite(depth) and depth > 0):
+                raise ValueError(f"{name} = {depth}: must be a finite number > 0")
+            if depth <= self.crossing_threshold:
+                # Inside, the distance never gets above L, so the classifier could never
+                # tell that the sensor has left again: the region is too small for this L.
+                raise ValueError(
+                    f"{name} = {depth} is not larger than the crossing threshold "
+                    f"L = {self.crossing_threshold:.3g}. A region this small cannot be tracked: "
+                    "make it larger, or lower max_speed, dt or the noise."
+                )
 
     @classmethod
     def from_motion(cls, max_speed: float, dt: float, noise_std: float,
                     sigma_multiplier: float = 3.0,
-                    initial_state: Presence = Presence.OUTSIDE) -> ClassifierConfig:
+                    initial_state: Presence = Presence.OUTSIDE,
+                    max_depth_a: float | None = None,
+                    max_depth_b: float | None = None) -> ClassifierConfig:
         """Derive ``L = v_max*dt + 2*k*sigma`` from motion and sensor-noise limits."""
         for name, value in (("max_speed", max_speed), ("dt", dt), ("sigma_multiplier", sigma_multiplier)):
             if not (math.isfinite(value) and value > 0):
@@ -70,7 +100,8 @@ class ClassifierConfig:
         if not (math.isfinite(noise_std) and noise_std >= 0):
             raise ValueError(f"noise_std = {noise_std}: must be a finite number >= 0")
         threshold = max_speed * dt + 2.0 * sigma_multiplier * noise_std
-        return cls(crossing_threshold=threshold, initial_state=initial_state)
+        return cls(crossing_threshold=threshold, initial_state=initial_state,
+                   max_depth_a=max_depth_a, max_depth_b=max_depth_b)
 
 
 class Classification(NamedTuple):
@@ -92,6 +123,7 @@ class PresenceClassifier:
         self._armed: dict[str, bool] = {}
         self._pending: dict[str, bool] = {}
         self._target = {"A": Presence.IN_A, "B": Presence.IN_B}
+        self._max_depth = {"A": config.max_depth_a, "B": config.max_depth_b}
 
     @property
     def state(self) -> Presence:
@@ -106,6 +138,7 @@ class PresenceClassifier:
         limit = self._cfg.crossing_threshold
         dist = {key: self._read(key) for key in self._get}  # validate both before changing anything
         before = self._state
+        self._check_depth(dist, limit)
 
         crossings: list[str] = []
         for key in sorted(dist, key=dist.__getitem__):  # nearest boundary first
@@ -119,6 +152,16 @@ class PresenceClassifier:
             if consumed in remaining:
                 remaining.remove(consumed)
         return Classification(self._state, self._state != before, dist["A"], dist["B"])
+
+    def _check_depth(self, dist: dict[str, float], limit: float) -> None:
+        """Go back to Outside if the state says "inside R" but the distance is too large for that."""
+        for key, target in self._target.items():
+            depth = self._max_depth[key]
+            if depth is not None and self._state == target and dist[key] > depth + limit:
+                log.warning("state was %s but get_dist_%s() = %.2f is larger than the region's "
+                            "depth (%.2f) plus the threshold; resetting to Outside",
+                            target.value, key.lower(), dist[key], depth)
+                self._state = Presence.OUTSIDE
 
     def _read(self, key: str) -> float:
         """Call ``get_dist_<key>()`` and check that the result is a real, non-negative number."""

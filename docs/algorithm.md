@@ -93,3 +93,41 @@ of these directions the two projections do not overlap, or only touch, the recta
 are apart. If they overlap on all four, the rectangles share area and the config is
 rejected (`assert_disjoint` in `regions.py`). This is the separating axis test; it is
 exact for rectangles, so touching walls and corners are allowed and any overlap is caught.
+
+## 6. Depth check
+
+From inside a rectangle, the largest possible distance to its edge is at the centre of
+the shorter side: half of that side. This is the region's depth (`Rectangle.depth`).
+
+```
+depth(A) = min(width, height) / 2 = min(20, 16) / 2 = 8 m
+```
+
+If the state is "In A" and `get_dist_a()` is larger than `depth + L` (8 + 0.6 = 8.6 m), the
+sensor cannot be inside A. The classifier then sets the state to Outside and logs a warning
+(`PresenceClassifier._check_depth`). `L` is the margin because noise and one step can add
+at most that much to a reading.
+
+It corrects a wrong state only after the sensor has moved far from the region. A wrong
+"In A" while the sensor is still within 8.6 m of A's edge stays, and a wrong "Outside" while
+the sensor is inside cannot be seen at all, because a distance below the depth fits both states.
+
+A region also has to be deeper than `L`. Inside a thinner region the distance never rises
+above `L`, so the classifier could never see the sensor leave it. `Simulation` rejects such a
+region with a message.
+
+## 7. Region layouts
+
+| Case | Layout | What the sensor sees, moving left to right | Scenario |
+|---|---|---|---|
+| 1 | Gap between A and B | Outside, A, Outside, B, Outside | default config |
+| 2 | A and B share a whole wall | Outside, A, B, Outside | `examples/shared_wall.toml` |
+| 3 | A and B share part of a wall | like case 2 through the shared part, like case 1 around it | `examples/partial_wall.toml` |
+| 4 | A and B overlap, partly or fully | rejected when the simulation is built | |
+
+Rectangles that touch only at a corner behave like case 1. Overlap is not allowed because a
+point inside both regions would be "in A" and "in B" at the same time, and the output has no
+such option. The overlap check (section 5) is exact, so it also rejects a thin crossing or two
+identical rectangles.
+
+A gap smaller than about `L` is read as a shared wall.

@@ -14,17 +14,12 @@ speed and the distance readings are noisy) and a live view.
 
 ## What you need
 
-* **Python 3.11 or newer.** Check with `python3 --version`.
-* **git**, to download the project. Or use the green "Code" button on GitHub and
-  "Download ZIP".
-* **Internet access** the first time, so `pip` can install the dependencies.
-* **For the live view only:** a screen. On a server, or in WSL without graphics
-  support, use `--headless` instead.
+* **Python 3.11 or newer** (`python3 --version`) and **git**, or "Download ZIP" on GitHub.
+* **Internet** the first time, so `pip` can install the dependencies.
+* **For the live view only:** a screen. On a server, or in WSL without graphics, use `--headless`.
 
-The project is tested on Linux (Ubuntu) with Python 3.11 to 3.14. It is plain
-Python, so macOS and Windows should work too; on Windows, activate the virtual
-environment with `.venv\Scripts\activate` instead of `source .venv/bin/activate`,
-and type `python` where the commands say `python3`.
+Tested on Linux (Ubuntu) with Python 3.11 to 3.14. macOS and Windows should work too; on
+Windows, activate the environment with `.venv\Scripts\activate` and type `python` for `python3`.
 
 ## Quick start
 
@@ -127,88 +122,53 @@ stateDiagram-v2
 
 The assignment leaves a few things open. These are the choices made here:
 
-1. **Distances are never negative.** If the real sensor returned a signed distance
-   (negative inside), the problem would reduce to checking the sign. This is not just
-   assumed: every reading is checked, and a negative, infinite or non-numeric value
-   (text such as `"3.5"` and `True`/`False` included) stops the classifier with an
-   `InvalidReadingError` that names the function and the value. The state is not
-   changed by a bad reading.
-2. **The starting state is known.** It is set in the config
-   (`simulation.initial_state`, default `outside`). The simulator checks that it
-   matches where the path really starts. The classifier never sees the true position.
-3. **A and B are rectangles that do not overlap** (confirmed with the interviewer).
-   Each one can be rotated (`rotation_deg`, default 0). They may be apart, share a
-   whole wall or share part of a wall; see
-   [`docs/algorithm.md`](docs/algorithm.md#7-region-layouts) and the files in
-   [`examples/`](examples/).
-4. **The sensor moves freely in the plane.** It can curve and turn back; left to right
-   is just one possible path.
-5. **Top speed and sensor noise are known** (`max_speed`, `noise_std` in the config).
-   Speed, noise and sample rate have no values in the assignment. The defaults
-   (walking speed 1.4 m/s, 5 cm noise, 10 readings per second) are my choices.
-   Each region must be deeper than `L` (half of its shorter side larger than `L`),
-   otherwise the exit could never be seen; such a config is rejected.
+1. **Distances are never negative.** With a signed distance the problem would reduce to
+   checking the sign. Every reading is checked: a negative, infinite or non-numeric value
+   (text such as `"3.5"` included) raises `InvalidReadingError` and leaves the state unchanged.
+2. **The starting state is known.** It is set in the config (`simulation.initial_state`,
+   default `outside`). The simulator checks it against where the path starts. The classifier
+   never sees the true position.
+3. **A and B are rectangles that do not overlap** (confirmed with the interviewer), and each
+   may be rotated. They may be apart or share a whole or partial wall (see
+   [`docs/algorithm.md`](docs/algorithm.md#7-region-layouts) and [`examples/`](examples/)).
+4. **The sensor moves freely in the plane.** It can curve and turn back.
+5. **Top speed and sensor noise are known** (`max_speed`, `noise_std`). The assignment gives
+   no values; the defaults (1.4 m/s, 5 cm, 10 readings per second) are my choices. Each
+   region must be deeper than `L`, otherwise its exit could never be seen, and such a config
+   is rejected.
 
 ## Limitations
 
-These come from the problem itself (an unsigned distance) and from using only the
-current and the previous reading. Two reviewers found most of them, and I repeated
-the experiments behind the numbers below. The first two are covered by tests in
-[`tests/test_classifier.py`](tests/test_classifier.py), marked as expected failures.
+An unsigned distance cannot say which side of an edge the sensor is on, so some cases cannot
+be solved. The main ones:
 
-* **Standing still, sliding along an edge, or touching it and turning back** within
-  about 0.3 m of the edge looks like a crossing, and the state flips wrongly. The
-  depth check corrects it only after the sensor has moved far from the region. I
-  measured 100 of 100 runs wrong after idling 0.15 m from an edge, and 0 of 100
-  still wrong after walking 40 m away.
-* **A pass shallower than `L`** (into a corner and straight out again) ends in the
-  wrong state, for the same reason, and is corrected the same way.
-* **A false "Outside" while really inside** cannot be detected: a distance below the
-  region's depth fits both states.
-* **A slow sensor is indicated early.** The flip comes before the edge by about
-  0.3 m at 0.05 m/s and 0.2 m at 0.4 m/s. At about 0.8 m/s it is on time, and
-  above that it is late (about 0.13 m at 1.4 m/s).
-* **A gap between A and B smaller than about `L`** (0.6 m by default) is read as a
-  shared wall, so no Outside appears between them.
-* **Real GPS noise is much larger than 5 cm.** `L` grows with the noise, and so does
-  the delay. With the default scenario and noise of 0.2 m the state sequence is
-  right in 30 of 30 runs (98.6% of readings correct); at 0.5 m in 27 of 30
-  (95.4%); at 1 m in 15 of 30 (89.4%). With noise of 2 m, `L` is larger than the
-  regions and the config is rejected.
-* **The sample interval is fixed.** `update()` has no timestamp, so dropped or late
-  samples break the calculation of `L`.
-* **A speed above `max_speed`** can make the sensor skip over a crossing.
-* **After an invalid reading** the next valid one is compared with the last valid one as
-  if only one sample had passed, although the gap may be longer.
+* **Standing still, sliding along an edge, or touching it and turning back** within about
+  0.3 m of the edge looks like a crossing, and the state flips wrongly. The depth check
+  corrects it only after the sensor has moved far from the region. Tests mark these as
+  expected failures.
+* **A false "Outside" while really inside** cannot be detected.
+* **A slow sensor is indicated a little early**, and a gap between A and B smaller than
+  about `L` is read as a shared wall.
+* **Real GPS noise is much larger than 5 cm.** `L` grows with the noise, and so does the
+  delay. At 1 m of noise the state sequence is right in only half of the runs.
+
+The full list, with the measurements, is in [`docs/limitations.md`](docs/limitations.md).
 
 ## Accuracy
 
-Over 100 seeds per scenario, the indication matches the true state on these shares
-of readings. The misses are the short delays right after each crossing. The last
-column counts the runs where the list of state changes was exactly the true one.
-
-| Scenario | Mean | Worst run | Correct sequence |
-|---|---|---|---|
-| default | 99.75% | 99.33% | 100 of 100 |
-| `shared_wall` | 99.65% | 98.69% | 100 of 100 |
-| `partial_wall` | 99.67% | 98.91% | 100 of 100 |
-| `noisy_rotated` | 99.19% | 97.92% | 99 of 100 |
-
-The simulator uses the same top speed and noise as the classifier assumes, so these
-are best-case numbers inside the limits above.
+Over 100 seeds per scenario, the indication matches the true state on 99.2% to 99.8% of
+readings on average (worst single run 97.9%). The state changes were exactly the true ones
+in 399 of 400 runs. The misses are the short delays right after each crossing. These are
+best-case numbers: the simulator uses the same top speed and noise as the classifier
+assumes. The table is in [`docs/limitations.md`](docs/limitations.md#accuracy).
 
 ## Simulation
 
-* **Path:** a smooth curve through a list of points from the config, open or closed.
-* **Speed:** has a configured average but keeps changing. It drifts up and down
-  around the average (an Ornstein-Uhlenbeck process) and stays between
-  `min_speed` and `max_speed`, so the sensor speeds up, slows down and sometimes stops.
-* **Readings:** `get_dist_a()` and `get_dist_b()` take no arguments, like a real
-  sensor driver. Each returns the true distance plus random noise, never below 0.
-  The true position is used only for the display and for measuring accuracy.
-* **Display:** a map with both regions, the current state in large colored text,
-  the true state next to it for comparison, and a plot of the two distances with
-  the line `L`.
+The sensor follows a smooth path through the points in the config. Its speed has a set average
+but keeps changing (an Ornstein-Uhlenbeck process, kept between `min_speed` and `max_speed`),
+so it speeds up, slows down and sometimes stops. `get_dist_a()` and `get_dist_b()` take no
+arguments, like a real sensor driver, and return the true distance plus noise. The true
+position is used only for the display and for measuring accuracy.
 
 ## Configuration
 
@@ -224,12 +184,10 @@ and the files in [`examples/`](examples/).
 | `[path]` | `points` (list of `[x, y]`), `closed` |
 | `[regions.A]`, `[regions.B]` | `center`, `width`, `height`, `rotation_deg` (optional, degrees counter-clockwise) |
 
-The speed is clipped to `[min_speed, max_speed]`, which pulls the real average away from
-`mean_speed` when that is close to a limit: 1.4 gives about 1.42, but 0.5 gives about 0.63.
-
-The file is checked before anything runs. A mistake gives one line that names the
-file, the section, the key and the value, for example
-`error: my.toml: [regions.A] width = '20': expected a number`, and exit code 2.
+The speed is clipped to `[min_speed, max_speed]`, which moves the real average away from
+`mean_speed` near a limit (1.4 gives about 1.42, 0.5 gives about 0.63). The file is checked
+before anything runs; a mistake gives one line with the file, section, key and value, and
+exit code 2.
 
 ## Using the classifier on its own
 
@@ -260,33 +218,23 @@ src/region_presence/
   config.py       loads and checks the TOML file
   live_view.py    the live plot
   cli.py          command line
-tests/            124 tests (3 are expected failures that document the limitations)
+tests/            geometry, speed, classifier, config, full runs, command line
 examples/         extra scenarios
 ```
 
 ## Possible improvements
 
-Left out on purpose: they change the core of the algorithm, the task has only two
-regions, and I preferred not to risk the part that works and is well tested.
+Left out on purpose: they change the core of the algorithm, the task has only two regions,
+and I preferred not to risk the part that works and is well tested.
 
-* One small state object per region instead of three dictionaries keyed by `"A"`
-  and `"B"`. Adding a third region would then not need a rewrite of the crossing logic.
-* The shared-wall rule as a separate policy, not part of the main state machine.
-* A `Region` protocol (`distance_to_boundary`, `contains`), so other shapes need no
-  change in the classifier or the sensor.
-* Dependency injection in `Simulation`, so another sensor or classifier can be tested.
-* Splitting `run_gui` into smaller functions.
-* A `Trajectory` protocol, so a recorded GPS track can replace the generated path.
-* Clearer diagnostics: a sample index or time in `InvalidReadingError` and in the
-  "missed exit" warning, which should also be rate limited.
-* `Simulation.frames()` is not safe to iterate twice (metrics are counted again), and one
-  random generator feeds both speed and noise, so seeded runs change when either is changed.
-* More automatic checks: a CI job that builds the wheel and runs it in a clean environment,
-  a coverage threshold, `pre-commit`, a lock file, a property-based test (Hypothesis), and
-  journey scenarios as TOML files driven by `pytest.mark.parametrize`.
-* Timestamps in `update()`, so `L` is calculated from the real time between samples.
-* `asyncio`, if the sensor becomes a network device or there are several sensors.
-* Vectorising with NumPy, for batch work such as replaying long recordings.
+* **Structure:** one small state object per region instead of three dictionaries, the
+  shared-wall rule as a separate policy, a `Region` protocol so other shapes need no change
+  in the classifier, dependency injection in `Simulation`, and a smaller `run_gui`.
+* **Behaviour:** timestamps in `update()`, so `L` follows the real time between samples.
+* **Scale:** `asyncio` for a network sensor or several sensors, NumPy for batch work.
+* **Checks:** a CI job that builds the wheel, a coverage threshold, a property-based test.
+
+The complete list is in [`docs/limitations.md`](docs/limitations.md#possible-improvements).
 
 ## Development
 

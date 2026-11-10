@@ -91,32 +91,27 @@ distances have no sign. It needs the two depths, which the simulation passes in;
 without them the check is skipped.
 
 ```mermaid
-flowchart LR
-  TOML[config.toml] --> CFG[config.py: load and check]
+flowchart TB
+  TOML[config.toml] --> CFG["config.py<br/>load and check"]
   CFG --> SIM
-  subgraph SIM[simulation.py: one step per dt]
-    REG[regions.py: rectangles A and B] --> SEN[sensor.py: true distance plus noise]
-    PATH[trajectory.py: path and speed] --> SEN
-    SEN -->|get_dist_a, get_dist_b| CLF[classifier.py]
+  subgraph SIM["simulation.py: one step per dt"]
+    PATH["trajectory.py<br/>path and speed"] --> SEN["sensor.py<br/>true distance plus noise"]
+    REG["regions.py<br/>rectangles A and B"] --> SEN
+    SEN -->|"get_dist_a, get_dist_b"| CLF[classifier.py]
   end
-  CLF -->|In A, In B or Outside| OUT[cli.py or live_view.py]
-  SEN -.->|true position and state, for display and accuracy only| OUT
+  CLF -->|"In A, In B or Outside"| OUT["cli.py or live_view.py"]
+  SEN -.->|"truth, for display only"| OUT
 ```
 
 ```mermaid
-stateDiagram-v2
-  state "In A" as InA
-  state "In B" as InB
-  [*] --> Outside: initial_state from the config
-  Outside --> InA: crossing edge A
-  InA --> Outside: crossing edge A
-  Outside --> InB: crossing edge B
-  InB --> Outside: crossing edge B
-  InA --> InB: shared wall
-  InB --> InA: shared wall
-  InA --> Outside: depth check
-  InB --> Outside: depth check
+flowchart LR
+  S(("start")) -->|"initial_state from the config"| O([Outside])
+  A([In A]) <-->|"crossing edge A"| O
+  O <-->|"crossing edge B"| B([In B])
+  A <-->|"shared wall"| B
 ```
+
+The depth check is one more way back to Outside, from In A or In B.
 
 ## Assumptions
 

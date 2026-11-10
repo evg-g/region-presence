@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import logging
 import math
+import numbers
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
@@ -54,15 +55,22 @@ class ClassifierConfig:
     """Distances are unsigned, so the starting side must be known a priori."""
 
     def __post_init__(self) -> None:
-        if self.crossing_threshold <= 0:
-            raise ValueError("crossing_threshold must be > 0")
+        # written as "not (x > 0)" so that NaN, for which every comparison is False, fails too
+        if not (math.isfinite(self.crossing_threshold) and self.crossing_threshold > 0):
+            raise ValueError(f"crossing_threshold = {self.crossing_threshold}: must be a finite number > 0")
 
     @classmethod
     def from_motion(cls, max_speed: float, dt: float, noise_std: float,
-                    sigma_multiplier: float = 3.0, **kwargs: object) -> ClassifierConfig:
+                    sigma_multiplier: float = 3.0,
+                    initial_state: Presence = Presence.OUTSIDE) -> ClassifierConfig:
         """Derive ``L = v_max*dt + 2*k*sigma`` from motion and sensor-noise limits."""
+        for name, value in (("max_speed", max_speed), ("dt", dt), ("sigma_multiplier", sigma_multiplier)):
+            if not (math.isfinite(value) and value > 0):
+                raise ValueError(f"{name} = {value}: must be a finite number > 0")
+        if not (math.isfinite(noise_std) and noise_std >= 0):
+            raise ValueError(f"noise_std = {noise_std}: must be a finite number >= 0")
         threshold = max_speed * dt + 2.0 * sigma_multiplier * noise_std
-        return cls(crossing_threshold=threshold, **kwargs)  # type: ignore[arg-type]
+        return cls(crossing_threshold=threshold, initial_state=initial_state)
 
 
 class Classification(NamedTuple):
@@ -116,10 +124,10 @@ class PresenceClassifier:
         """Call ``get_dist_<key>()`` and check that the result is a real, non-negative number."""
         name = f"get_dist_{key.lower()}()"
         value = self._get[key]()
-        try:
-            distance = float(value)
-        except (TypeError, ValueError):
-            raise InvalidReadingError(f"{name} returned {value!r}; expected a number") from None
+        # bool is a subclass of int, and float("3.5") would quietly accept text: reject both
+        if isinstance(value, bool) or not isinstance(value, numbers.Real):
+            raise InvalidReadingError(f"{name} returned {value!r}; expected a number")
+        distance = float(value)
         if not math.isfinite(distance) or distance < 0:
             raise InvalidReadingError(
                 f"{name} returned {distance}; a distance must be a finite number >= 0"

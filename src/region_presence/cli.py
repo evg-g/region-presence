@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import logging
+import math
 import os
 import sys
 import time
@@ -16,16 +17,34 @@ from .config import ConfigError, load_config
 from .simulation import Simulation
 
 
+def _number(text: str, *, allow_zero: bool) -> float:
+    try:
+        value = float(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected a number, got {text!r}") from None
+    if not math.isfinite(value) or value < 0 or (value == 0 and not allow_zero):
+        sign = ">=" if allow_zero else ">"
+        raise argparse.ArgumentTypeError(f"must be a finite number {sign} 0, got {text}")
+    return value
+
+
+def _positive(text: str) -> float:
+    return _number(text, allow_zero=False)
+
+
+def _non_negative(text: str) -> float:
+    return _number(text, allow_zero=True)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="region-presence",
                                 description="Real-time In A / In B / Outside classification demo.")
     p.add_argument("-c", "--config", type=Path, help="TOML scenario (default: bundled scenario)")
     p.add_argument("--headless", action="store_true", help="console output instead of the live plot")
-    p.add_argument("--speedup", type=float, default=5.0,
+    p.add_argument("--speedup", type=_non_negative, default=5.0,
                    help="simulated seconds per wall-clock second (0 = as fast as possible; default 5)")
-    p.add_argument("--duration", type=float, help="override simulation.duration_s")
+    p.add_argument("--duration", type=_positive, help="override simulation.duration_s")
     p.add_argument("--seed", type=int, help="override simulation.seed")
-    p.add_argument("--save", type=Path, help="save the animation to a .gif (implies no window)")
     p.add_argument("-v", "--verbose", action="store_true", help="print every sample in headless mode")
     return p
 
@@ -74,12 +93,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         from .live_view import run_gui
     except ImportError:
-        print("error: the live plot needs matplotlib (pip install 'region-presence[gui]'); "
-              "or use --headless", file=sys.stderr)
+        print("error: the live plot needs matplotlib (pip install matplotlib); "
+              "or run with --headless", file=sys.stderr)
         return 2
     try:
-        run_gui(sim, realtime_factor=args.speedup if args.speedup > 0 else 50.0,
-                save=args.save, show=args.save is None)
+        run_gui(sim, realtime_factor=args.speedup if args.speedup > 0 else 50.0)
     except KeyboardInterrupt:
         return 130
     return 0

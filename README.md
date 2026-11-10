@@ -47,7 +47,7 @@ region-presence -c examples/noisy_rotated.toml   # rotated rectangles, more sens
 ```
 
 Useful options: `--speedup N` (0 runs as fast as possible), `--duration S`,
-`--seed N`, `--verbose` (print every sample), `--save file.gif`.
+`--seed N`, `--verbose` (print every sample).
 `python -m region_presence` works the same way.
 
 ## How it works
@@ -93,7 +93,7 @@ The assignment leaves a few things open. These are the choices made here:
 1. **Distances are never negative.** If the real sensor returned a signed distance
    (negative inside), the problem would reduce to checking the sign. This is not just
    assumed: every reading is checked, and a negative, infinite or non-numeric value
-   stops the classifier with an `InvalidReadingError` that names the function and the
+   (text such as `"3.5"` and `True`/`False` included) stops the classifier with an `InvalidReadingError` that names the function and the
    value. The state is not changed by a bad reading.
 2. **The starting state is known.** It is set in the config
    (`simulation.initial_state`, default `outside`). The simulator checks that it
@@ -156,6 +156,10 @@ and the files in [`examples/`](examples/).
 | `[path]` | `points` (list of `[x, y]`), `closed` |
 | `[regions.A]`, `[regions.B]` | `center`, `width`, `height`, `rotation_deg` (optional, degrees counter-clockwise) |
 
+The file is checked before anything runs. A mistake gives one line that names the
+file, the section, the key and the value, for example
+`error: my.toml: [regions.A] width = '20': expected a number`, and exit code 2.
+
 A wrong or missing key, a bad value, or overlapping regions stop the program with
 a message that says what to fix.
 
@@ -174,7 +178,7 @@ print(clf.update().state)    # Presence.IN_A, Presence.IN_B or Presence.OUTSIDE
 ```
 
 `update()` raises `InvalidReadingError` (a `ValueError`) if a distance function returns
-a negative, infinite or non-numeric value.
+a negative, infinite or non-numeric value (text and `True`/`False` included).
 
 ## Project layout
 
@@ -188,7 +192,7 @@ src/region_presence/
   config.py       loads and checks the TOML file
   live_view.py    the live plot
   cli.py          command line
-tests/            67 tests: geometry, speed, classifier, full runs, command line
+tests/            113 tests: geometry, speed, classifier, config, full runs, command line
 examples/         extra scenarios
 ```
 

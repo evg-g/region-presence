@@ -1,9 +1,12 @@
-"""Live matplotlib view (optional dependency: ``pip install region-presence[gui]``)."""
+"""Live matplotlib view. matplotlib is optional: it comes with the ``gui`` extra."""
 
 from __future__ import annotations
 
 from collections import deque
-from pathlib import Path as FsPath
+
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+from matplotlib.patches import Polygon
 
 from .classifier import Presence
 from .simulation import Frame, Simulation
@@ -11,17 +14,13 @@ from .simulation import Frame, Simulation
 COLORS = {Presence.IN_A: "#1f77b4", Presence.IN_B: "#ff7f0e", Presence.OUTSIDE: "#7f7f7f"}
 
 
-def run_gui(sim: Simulation, realtime_factor: float = 1.0, save: FsPath | None = None,
-            show: bool = True, window_s: float = 30.0) -> None:
-    import matplotlib.pyplot as plt
-    from matplotlib.animation import FuncAnimation
-    from matplotlib.patches import Polygon
-
+def run_gui(sim: Simulation, realtime_factor: float = 1.0, window_s: float = 30.0) -> None:
+    """Open a window that animates the simulation and the classifier's output."""
     interval_ms = 40
     steps_per_tick = max(1, round(realtime_factor * interval_ms / 1000 / sim.cfg.dt))
     limit = sim.classifier.crossing_threshold
 
-    fig = plt.figure(figsize=(10, 7), dpi=55 if save else 100)  # small dpi keeps saved GIFs light
+    fig = plt.figure(figsize=(10, 7))
     ax_map = fig.add_axes((0.06, 0.37, 0.9, 0.5))
     ax_d = fig.add_axes((0.06, 0.07, 0.9, 0.15))
 
@@ -59,7 +58,6 @@ def run_gui(sim: Simulation, realtime_factor: float = 1.0, save: FsPath | None =
     da: deque[float] = deque()
     db: deque[float] = deque()
     source = sim.frames()
-    done = False
 
     def consume(frame: Frame) -> None:
         xs.append(frame.position[0])
@@ -75,13 +73,11 @@ def run_gui(sim: Simulation, realtime_factor: float = 1.0, save: FsPath | None =
             ys.popleft()
 
     def tick(_: int) -> tuple[()]:
-        nonlocal done
         last: Frame | None = None
         for _i in range(steps_per_tick):
             try:
                 last = next(source)
             except StopIteration:
-                done = True
                 break
             consume(last)
         if last is None:
@@ -100,10 +96,8 @@ def run_gui(sim: Simulation, realtime_factor: float = 1.0, save: FsPath | None =
         return ()
 
     total_ticks = -(-int(round(sim.cfg.duration_s / sim.cfg.dt)) // steps_per_tick)
-    anim = FuncAnimation(fig, tick, frames=total_ticks, interval=interval_ms,
-                         blit=False, repeat=False, cache_frame_data=False)
-    if save is not None:
-        anim.save(str(save), writer="pillow", fps=round(1000 / interval_ms), dpi=55)
-    if show:
-        plt.show()
+    # keep a reference until plt.show() returns: matplotlib stops an animation that is garbage-collected
+    _anim = FuncAnimation(fig, tick, frames=total_ticks, interval=interval_ms,
+                          blit=False, repeat=False, cache_frame_data=False)
+    plt.show()
     plt.close(fig)

@@ -26,8 +26,10 @@ class Rectangle:
 
     def __init__(self, name: str, center: Point, width: float, height: float,
                  rotation_deg: float = 0.0) -> None:
+        if not all(math.isfinite(v) for v in (*center, width, height, rotation_deg)):
+            raise ValueError(f"region {name}: center, width, height and rotation_deg must be finite")
         if width <= 0 or height <= 0:
-            raise ValueError(f"region {name}: width and height must be > 0")
+            raise ValueError(f"region {name}: width and height must be > 0, got {width} x {height}")
         self.name = name
         self.center = (float(center[0]), float(center[1]))
         self.half_w = width / 2.0

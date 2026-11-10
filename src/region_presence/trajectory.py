@@ -6,7 +6,7 @@ import bisect
 import math
 import random
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from typing import Any
 
 from .regions import Point
@@ -75,7 +75,10 @@ def build_path(spec: Mapping[str, Any]) -> Path:
         raise ValueError(f"[path]: unknown keys {sorted(unknown)}; allowed: ['closed', 'points']")
     if "points" not in spec:
         raise ValueError("[path]: missing key 'points'")
-    return waypoint_path([tuple(p) for p in spec["points"]], bool(spec.get("closed", True)))
+    closed = spec.get("closed", True)
+    if not isinstance(closed, bool):  # bool("false") would be True
+        raise ValueError(f"[path] closed = {closed!r}: expected true or false")
+    return waypoint_path([tuple(p) for p in spec["points"]], closed)
 
 
 @dataclass(frozen=True)
@@ -89,10 +92,22 @@ class MotionConfig:
     max_speed: float = 3.0
 
     def __post_init__(self) -> None:
+        values = {f.name: getattr(self, f.name) for f in fields(self)}
+        bad = [f"{name} = {v}" for name, v in values.items() if not math.isfinite(v)]
+        if bad:
+            raise ValueError(f"must be finite numbers: {', '.join(bad)}")
         if not (0 <= self.min_speed <= self.mean_speed <= self.max_speed):
-            raise ValueError("need 0 <= min_speed <= mean_speed <= max_speed")
-        if self.speed_std < 0 or self.correlation_time <= 0:
-            raise ValueError("speed_std must be >= 0 and correlation_time > 0")
+            raise ValueError(
+                "need 0 <= min_speed <= mean_speed <= max_speed, got "
+                f"min_speed = {self.min_speed}, mean_speed = {self.mean_speed}, "
+                f"max_speed = {self.max_speed}"
+            )
+        if self.max_speed <= 0:
+            raise ValueError("max_speed must be > 0")
+        if self.speed_std < 0:
+            raise ValueError(f"speed_std = {self.speed_std}: must be >= 0")
+        if self.correlation_time <= 0:
+            raise ValueError(f"correlation_time = {self.correlation_time}: must be > 0")
 
 
 class SpeedProcess:

@@ -100,7 +100,7 @@ def test_adjacent_regions_move_directly_from_a_to_b():
     assert OUT not in states  # never flickers through Outside
 
 
-@pytest.mark.parametrize("bad", [-0.3, float("nan"), float("inf"), "far", None])
+@pytest.mark.parametrize("bad", [-0.3, float("nan"), float("inf"), "far", None, "3.5", True, b"4"])
 def test_invalid_reading_is_rejected_with_a_clear_message(bad):
     clf = PresenceClassifier(lambda: bad, lambda: 10.0, ClassifierConfig(0.6))
     with pytest.raises(InvalidReadingError, match=r"get_dist_a\(\) returned"):
@@ -129,3 +129,16 @@ def test_bad_reading_does_not_change_the_state():
 def test_zero_distance_is_valid():
     clf = PresenceClassifier(lambda: 0.0, lambda: 0.0, ClassifierConfig(0.6))
     assert clf.update().state == OUT
+
+
+@pytest.mark.parametrize("threshold", [0.0, -1.0, float("nan"), float("inf")])
+def test_threshold_must_be_a_positive_finite_number(threshold):
+    with pytest.raises(ValueError, match="crossing_threshold"):
+        ClassifierConfig(threshold)
+
+
+def test_from_motion_names_the_bad_input():
+    with pytest.raises(ValueError, match="dt"):
+        ClassifierConfig.from_motion(max_speed=3.0, dt=0.0, noise_std=0.05)
+    with pytest.raises(ValueError, match="noise_std"):
+        ClassifierConfig.from_motion(max_speed=3.0, dt=0.1, noise_std=float("nan"))

@@ -131,3 +131,8 @@ such option. The overlap check (section 5) is exact, so it also rejects a thin c
 identical rectangles.
 
 A gap smaller than about `L` is read as a shared wall.
+
+If both distances cross at the same moment from Outside (equal readings, possible only on a
+shared wall or corner), the classifier handles A first and then B, and ends in In B. The order
+A, B is a tie-break that is not part of the design, and a logged warning ("assuming a missed exit")
+shows that it happened.

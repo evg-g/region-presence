@@ -38,6 +38,11 @@ class Rectangle:
         self._cos, self._sin = math.cos(angle), math.sin(angle)
 
     @property
+    def axes(self) -> tuple[Point, Point]:
+        """The directions of the two pairs of edges, as unit vectors in world coordinates."""
+        return ((self._cos, self._sin), (-self._sin, self._cos))
+
+    @property
     def depth(self) -> float:
         """Largest possible distance to the boundary from inside: half of the shorter side."""
         return min(self.half_w, self.half_h)
@@ -101,7 +106,7 @@ def assert_disjoint(a: Rectangle, b: Rectangle, tol: float = 1e-6) -> None:
     one of their edge directions, their shadows (projections) do not overlap.
     Rectangles have only two edge directions each, so four directions are checked.
     """
-    axes = [(r._cos, r._sin) for r in (a, b)] + [(-r._sin, r._cos) for r in (a, b)]
+    axes = [*a.axes, *b.axes]
     for ax, ay in axes:
         shadow_a = [x * ax + y * ay for x, y in a.corners()]
         shadow_b = [x * ax + y * ay for x, y in b.corners()]

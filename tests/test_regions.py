@@ -78,6 +78,12 @@ def test_build_region_validation(spec, msg):
         build_region("A", spec)
 
 
+def test_axes_are_the_edge_directions():
+    assert Rectangle("A", (0, 0), 4, 2).axes == ((1.0, 0.0), (0.0, 1.0))
+    (ux, uy), (vx, vy) = Rectangle("A", (0, 0), 4, 2, rotation_deg=90).axes
+    assert (round(ux, 9), round(uy, 9), round(vx, 9), round(vy, 9)) == (0.0, 1.0, -1.0, 0.0)
+
+
 def test_depth_is_half_of_the_shorter_side():
     assert Rectangle("A", (0, 0), 20, 16).depth == 8
     assert Rectangle("A", (5, 5), 6, 30, rotation_deg=37).depth == 3

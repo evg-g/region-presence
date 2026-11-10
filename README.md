@@ -178,6 +178,8 @@ the experiments behind the numbers below. The first two are covered by tests in
 * **The sample interval is fixed.** `update()` has no timestamp, so dropped or late
   samples break the calculation of `L`.
 * **A speed above `max_speed`** can make the sensor skip over a crossing.
+* **After an invalid reading** the next valid one is compared with the last valid one as
+  if only one sample had passed, although the gap may be longer.
 
 ## Accuracy
 
@@ -221,6 +223,9 @@ and the files in [`examples/`](examples/).
 | `[motion]` | `mean_speed`, `speed_std`, `correlation_time`, `min_speed`, `max_speed` |
 | `[path]` | `points` (list of `[x, y]`), `closed` |
 | `[regions.A]`, `[regions.B]` | `center`, `width`, `height`, `rotation_deg` (optional, degrees counter-clockwise) |
+
+The speed is clipped to `[min_speed, max_speed]`, which pulls the real average away from
+`mean_speed` when that is close to a limit: 1.4 gives about 1.42, but 0.5 gives about 0.63.
 
 The file is checked before anything runs. A mistake gives one line that names the
 file, the section, the key and the value, for example
@@ -271,6 +276,14 @@ regions, and I preferred not to risk the part that works and is well tested.
   change in the classifier or the sensor.
 * Dependency injection in `Simulation`, so another sensor or classifier can be tested.
 * Splitting `run_gui` into smaller functions.
+* A `Trajectory` protocol, so a recorded GPS track can replace the generated path.
+* Clearer diagnostics: a sample index or time in `InvalidReadingError` and in the
+  "missed exit" warning, which should also be rate limited.
+* `Simulation.frames()` is not safe to iterate twice (metrics are counted again), and one
+  random generator feeds both speed and noise, so seeded runs change when either is changed.
+* More automatic checks: a CI job that builds the wheel and runs it in a clean environment,
+  a coverage threshold, `pre-commit`, a lock file, a property-based test (Hypothesis), and
+  journey scenarios as TOML files driven by `pytest.mark.parametrize`.
 * Timestamps in `update()`, so `L` is calculated from the real time between samples.
 * `asyncio`, if the sensor becomes a network device or there are several sensors.
 * Vectorising with NumPy, for batch work such as replaying long recordings.

@@ -5,7 +5,8 @@ The short version is in the [README](../README.md). This page has the full lists
 ## Limitations
 
 These come from the problem itself (an unsigned distance) and from using only the
-current and the previous reading. The numbers below were measured over 100 seeds.
+current and the previous reading. The numbers below come from
+[`scripts/run_experiments.py`](../scripts/run_experiments.py), which anyone can rerun.
 The first two are covered by tests in
 [`tests/test_classifier.py`](../tests/test_classifier.py), marked as expected failures.
 

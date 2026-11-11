@@ -155,7 +155,8 @@ Over 100 seeds per scenario, the indication matches the true state on 99.2% to 9
 readings on average (worst single run 97.9%). The state changes were exactly the true ones
 in 399 of 400 runs. The misses are the short delays right after each crossing. These are
 best-case numbers: the simulator uses the same top speed and noise as the classifier
-assumes. The table is in [`docs/limitations.md`](docs/limitations.md#accuracy).
+assumes. The table is in [`docs/limitations.md`](docs/limitations.md#accuracy). To repeat
+the measurements, run `python scripts/run_experiments.py` (about 15 seconds).
 
 ## Simulation
 

@@ -53,8 +53,8 @@ are best-case numbers inside the limits above.
 
 ## Possible improvements
 
-Left out on purpose: they change the core of the algorithm, the task has only two
-regions, and I preferred not to risk the part that works and is well tested.
+Left out on purpose: the task has only two regions, and the structural changes would
+touch the part that works and is well tested.
 
 * One small state object per region instead of three dictionaries keyed by `"A"`
   and `"B"`. Adding a third region would then not need a rewrite of the crossing logic.

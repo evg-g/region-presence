@@ -128,7 +128,8 @@ The assignment leaves a few things open. These are the choices made here:
    [`docs/algorithm.md`](docs/algorithm.md#7-region-layouts) and [`examples/`](examples/)).
 4. **The sensor moves freely in the plane.** It can curve and turn back.
 5. **Top speed and sensor noise are known** (`max_speed`, `noise_std`). The assignment gives
-   no values; the defaults (1.4 m/s, 5 cm, 10 readings per second) are my choices. Each
+   no values; the defaults (`max_speed` 3.0 m/s, `noise_std` 5 cm, 10 readings per second)
+   are my choices. Each
    region must be deeper than `L`, otherwise its exit could never be seen, and such a config
    is rejected.
 
@@ -220,8 +221,8 @@ examples/         extra scenarios
 
 ## Possible improvements
 
-Left out on purpose: they change the core of the algorithm, the task has only two regions,
-and I preferred not to risk the part that works and is well tested.
+Left out on purpose: the task has only two regions, and the structural changes would touch
+the part that works and is well tested.
 
 * **Structure:** one small state object per region instead of three dictionaries, the
   shared-wall rule as a separate policy, a `Region` protocol so other shapes need no change

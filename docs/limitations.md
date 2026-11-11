@@ -5,8 +5,8 @@ The short version is in the [README](../README.md). This page has the full lists
 ## Limitations
 
 These come from the problem itself (an unsigned distance) and from using only the
-current and the previous reading. Two reviewers found most of them, and I repeated
-the experiments behind the numbers below. The first two are covered by tests in
+current and the previous reading. The numbers below were measured over 100 seeds.
+The first two are covered by tests in
 [`tests/test_classifier.py`](../tests/test_classifier.py), marked as expected failures.
 
 * **Standing still, sliding along an edge, or touching it and turning back** within
